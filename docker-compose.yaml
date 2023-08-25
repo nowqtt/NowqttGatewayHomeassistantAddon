@@ -1,0 +1,12 @@
+version: "3.7"
+
+services:
+  app:
+    restart: "unless-stopped"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "1883:1883"
+    devices:
+      - "/dev/ttyUSB0:/dev/ttyUSB0"

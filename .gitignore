@@ -1,0 +1,8 @@
+.venv/
+__pychache__/
+.idea/
+__pycache__/
+
+config/config.yaml
+
+logfile.txt
