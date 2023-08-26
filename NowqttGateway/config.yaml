@@ -1,0 +1,43 @@
+---
+name: "Nowqtt Gateway"
+description: "Gateway for nowqtt"
+version: "1.0.1"
+slug: "nowqtt_gateway"
+url: "https://github.com/ChrisC132/NowqttGatewayHomeassistantAddon"
+init: false
+arch:
+  - armhf
+  - armv7
+  - aarch64
+  - amd64
+  - i386
+devices:
+  - /dev/ttyUSB0
+apparmor: true
+
+options:
+  log_level: "DEBUG"
+  default_seconds_until_timeout: 60
+  cooldown_between_config_request_on_unknown_sensor: 5
+  serial:
+    com_port: "/dev/ttyUSB0"
+    baudrate: 115200
+  mqtt_client:
+    username: ""
+    password: ""
+    address: ""
+    port: 1883
+  #TODO influx missing
+
+schema:
+  log_level: list(DEBUG|INFO|WARNING|ERROR|CRITICAL|TEST)
+  default_seconds_until_timeout: int(0,)
+  cooldown_between_config_request_on_unknown_sensor: int(0,)
+  serial:
+    com_port: str
+    baudrate: int(0,)
+  mqtt_client:
+    username: str
+    password: str
+    address: str
+    port: int

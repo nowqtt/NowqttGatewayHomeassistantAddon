@@ -15,7 +15,7 @@
 - Find the major and minor number of this device
   - `ls -l /dev/serial/by-id/<device_id>`
   - Output example: `lrwxrwxrwx 1 root root 13 Mar  3 14:39 /dev/serial/by-id/usb-FTDI_USB-Serial_Converter_FT2GO19S-if00-port0 -> ../../ttyUSB0`
-  - n this example, the major number is mostly 188 (which corresponds to the ttyUSB driver), and the minor number is 0
+  - Like in this example, the major number is mostly 188 (which corresponds to the ttyUSB driver), and the minor number is 0
   - Figure out if ttyUSB is 188: `grep ttyUSB /proc/devices`. Output: `188 ttyUSB`
 - Edit the LXC container configuration file by running the following command: `nano /etc/pve/lxc/<container_id>.conf`
 - Add the following lines to the configuration file: 
