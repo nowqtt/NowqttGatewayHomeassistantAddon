@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY src /app/src
 COPY requirements.txt /app/requirements.txt
-COPY run.sh /app/
+COPY run.sh /app/run.sh
 
 RUN chmod a+x /app/run.sh
 
