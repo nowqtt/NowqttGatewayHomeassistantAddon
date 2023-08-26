@@ -27,7 +27,7 @@ def expand_device_config(device):
     if 't' in device:
         device['seconds_until_timeout'] = device.pop('t')
     else:
-        device['seconds_until_timeout'] = global_vars.config["bridge"]["default_seconds_until_timeout"]
+        device['seconds_until_timeout'] = global_vars.config["default_seconds_until_timeout"]
 
     return device
 
@@ -167,7 +167,7 @@ class SerialTask:
         reset_message.append(0)
         global_vars.serial.write(reset_message + b'\n\n\n')
 
-        logging.debug("request config on unknown state message")
+        logging.debug("request app_config on unknown state message")
 
     def process_mqtt_state_message(self, message, header):
         if self.nowqtt_devices.has_device_and_entity(header["device_mac_address_int"], header["entity_id"]):
@@ -177,7 +177,7 @@ class SerialTask:
             # Test if cooldown exists
             if header["device_mac_address_int"] in self.config_message_request_cooldown:
                 # Test if cooldown is longer then five seconds ago
-                if time.time() - self.config_message_request_cooldown[header["device_mac_address_int"]] >= global_vars.config["bridge"]["cooldown_between_config_request_on_unknown_sensor"]:
+                if time.time() - self.config_message_request_cooldown[header["device_mac_address_int"]] >= global_vars.config["cooldown_between_config_request_on_unknown_sensor"]:
                     self.request_config_message(header)
             else:
                 self.request_config_message(header)
@@ -248,7 +248,7 @@ class SerialTask:
         # MQTT state message
         elif header["command_type"] == global_vars.SerialCommands.STATE.value:
             self.process_mqtt_state_message(message, header)
-        # MQTT config message
+        # MQTT app_config message
         elif header["command_type"] == global_vars.SerialCommands.CONFIG.value:
             self.process_mqtt_config_message(message, header)
         # log message

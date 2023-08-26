@@ -3,6 +3,6 @@ __pychache__/
 .idea/
 __pycache__/
 
-config/config.yaml
+app_config/app_config.yaml
 
 logfile.txt
