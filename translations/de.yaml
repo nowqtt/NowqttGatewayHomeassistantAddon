@@ -1,0 +1,22 @@
+---
+configuration:
+  log_level:
+    name: Log level
+  default_seconds_until_timeout:
+    name: Sekunden bis zum Timeout
+    description: >-
+      Sekunden bis zum Timeout des nowqtt-Geräts. 
+      Kann für jedes Gerät individuell überschrieben werden.
+  cooldown_between_config_request_on_unknown_sensor:
+    name: Zeit zwischen Konfigurationsanfragen bei unbekanntem Sensor
+    description: >-
+      Um eine Überflutung des Geräts mit Nachrichten zu vermeiden, 
+      wartet das Gateway eine bestimmte Anzahl von Sekunden zwischen zwei Konfigurationsanfragen.
+  serial:
+    name: Serial device
+    description: >-
+      COM port und baudrate des Serial devices.
+  mqtt_client:
+    name: MQTT client
+    description: >-
+      Benutzername, Passwort, Adresse und Port des MQTT-Clients.

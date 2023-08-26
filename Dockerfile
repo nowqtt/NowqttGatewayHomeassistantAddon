@@ -3,7 +3,6 @@ FROM python:3.8
 WORKDIR /app
 
 COPY src /app/src
-COPY app_config/app_config.yaml /app/app_config/app_config.yaml
 COPY requirements.txt /app/requirements.txt
 COPY run.sh /app/
 

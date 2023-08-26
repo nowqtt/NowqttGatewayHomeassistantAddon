@@ -11,6 +11,8 @@ import serial_task
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level="CRITICAL")
+
     global_vars.config = {}
     with open("/data/options.json", "r") as user_file:
         try:
