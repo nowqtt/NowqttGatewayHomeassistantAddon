@@ -22,8 +22,6 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=global_vars.config["log_level"])
 
-    logging.info(global_vars.config)
-
     com_port = global_vars.config["serial"]["com_port"]
     baudrate = global_vars.config["serial"]["baudrate"]
 

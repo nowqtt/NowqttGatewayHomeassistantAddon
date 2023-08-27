@@ -5,8 +5,7 @@ configuration:
   default_seconds_until_timeout:
     name: Sekunden bis zum Timeout
     description: >-
-      Sekunden bis zum Timeout des nowqtt-Geräts. 
-      Kann für jedes Gerät individuell überschrieben werden.
+      Sekunden bis zum Timeout des nowqtt-Geräts, kann von jedem Gerät individuell überschrieben werden.
   cooldown_between_config_request_on_unknown_sensor:
     name: Zeit zwischen Konfigurationsanfragen bei unbekanntem Sensor
     description: >-
