@@ -6,7 +6,7 @@ configuration:
     name: Default seconds until timeout
     description: >-
       Seconds until the nowqtt device times out. 
-      Can be overwritten for every device individually.
+      Can be overwritten by every device individually.
   cooldown_between_config_request_on_unknown_sensor:
     name: Cooldown between config requests on unknown sensor
     description: >-

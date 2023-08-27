@@ -16,7 +16,7 @@ devices:
 apparmor: true
 
 options:
-  log_level: "DEBUG"
+  log_level: "INFO"
   default_seconds_until_timeout: 60
   cooldown_between_config_request_on_unknown_sensor: 5
   serial:
