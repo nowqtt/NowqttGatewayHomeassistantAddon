@@ -36,5 +36,9 @@ platforms = {
     'binary_sensor': {
         'state': True,
         'command': False,
+    },
+    'cover': {
+        'state': True,
+        'command': True,
     }
 }
