@@ -279,21 +279,26 @@ class SerialTask:
 
         logging.info("RUNNING")
 
-        begin_message_count = 0
+        send_header = bytearray.fromhex("FF13AB06")
+        counter = 0
         while True:
-            serial_begin_message = global_vars.serial.read(1)
-            if serial_begin_message == b'\x05':
-                begin_message_count += 1
+            while counter < 3:
+                serial_begin_message = global_vars.serial.read(1)
 
-            if begin_message_count == 3:
-                begin_message_count = 0
+                if len(serial_begin_message) == 0:
+                    raise TimeoutError("Partner Timeout")
+                if serial_begin_message == send_header[counter:counter + 1]:
+                    counter += 1
+                else:
+                    counter = 0
 
-                serial_header = global_vars.serial.read(8)
-                logging.debug("Header: %s", serial_header.hex())
+            message_length = int.from_bytes(global_vars.serial.read(1))
+            if message_length == 0:
+                raise TimeoutError("Partner Timeout")
 
-                serial_message_id = global_vars.serial.read(1)
-                logging.debug("Message ID %s", serial_message_id.hex())
+            serial_header = global_vars.serial.read(8)
+            logging.debug("Header: %s", serial_header.hex())
 
-                serial_message = global_vars.serial.readline().decode("utf-8", errors='ignore').strip()
-                logging.debug("Message: %s", serial_message)
-                self.process_serial_message(serial_message, serial_header)
+            serial_message = global_vars.serial.read(message_length-8).decode("utf-8", errors='ignore').strip()
+            logging.debug("Message: %s", serial_message)
+            self.process_serial_message(serial_message, serial_header)
