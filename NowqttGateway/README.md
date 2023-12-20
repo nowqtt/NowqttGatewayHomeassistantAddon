@@ -46,12 +46,12 @@
 
 Messages contain the following components in this order 
 
-- 3 bytes of fives to mark the beginning of a new message
-- 9 bytes header:
-  - 6 bytes MAC address of the esp
-  - 1 byte to identify the sensor
-  - 1 byte command type
-  - 1 byte message id
+- 3 Bytes of fives to mark the beginning of a new message
+- 1 Byte message length
+- 8 Bytes header:
+  - 6 Bytes MAC address of the esp
+  - 1 Byte command type
+  - 1 Byte to identify the sensor
 - The rest up to a new line is the message
 
 Commands:

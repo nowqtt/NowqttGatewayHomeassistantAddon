@@ -84,9 +84,9 @@ def expand_header_message(raw_header):
     return {
         "device_mac_address_bytearray": bytearray(raw_header[:6]),
         "device_mac_address_int": int.from_bytes(bytearray(raw_header[:6]), "big"),
-        "entity_id": raw_header[6],
-        "mac_address_and_entity_id": raw_header[:7],
-        "command_type": raw_header[7]
+        "entity_id": raw_header[7],
+        "mac_address_and_entity_id": raw_header[:6] + raw_header[7],
+        "command_type": raw_header[6]
     }
 
 
@@ -255,8 +255,8 @@ class SerialTask:
         elif header["command_type"] == global_vars.SerialCommands.LOG.value:
             process_serial_log_message(message)
         # heartbeat
-        elif header["command_type"] == global_vars.SerialCommands.HEARTBEAT.value:
-            self.process_heartbeat(header, message)
+        # elif header["command_type"] == global_vars.SerialCommands.HEARTBEAT.value:
+            # self.process_heartbeat(header, message)
 
     def disconnect_all_mqtt_clients(self):
         self.nowqtt_devices.mqtt_disconnect_all()
