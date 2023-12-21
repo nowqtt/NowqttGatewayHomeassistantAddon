@@ -4,6 +4,8 @@ import logging
 import global_vars
 import serial
 
+import yaml
+
 from influxdb_client import InfluxDBClient
 from influxdb_client.client.write_api import SYNCHRONOUS
 
@@ -12,13 +14,12 @@ import serial_task
 
 if __name__ == '__main__':
     global_vars.config = {}
-    with open("/data/options.json", "r") as user_file:
+    with open("config.yml", "r") as user_file:
         try:
-            file_contents = user_file.read()
+            temp = yaml.safe_load(user_file)
+            global_vars.config = temp['config']
         except Exception as e:
             logging.error(e)
-
-    global_vars.config = json.loads(file_contents)
 
     logging.basicConfig(level=global_vars.config["log_level"])
 

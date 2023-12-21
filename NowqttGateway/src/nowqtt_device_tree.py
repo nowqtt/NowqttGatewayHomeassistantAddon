@@ -49,10 +49,13 @@ class NowqttDevices:
             device_entity_unique_identifier = bytearray(header["device_mac_address_bytearray"])
             device_entity_unique_identifier.append(0)
 
+            print(header["entity_id"])
+
             t = Thread(target=mqtt_task.MQTTTask(
                 mqtt_client_rssi,
                 ["homeassistant/status"],
-                device_entity_unique_identifier,
+                header["device_mac_address_bytearray"],
+                header["entity_id"],
                 json.dumps(mqtt_config_message_rssi),
                 mqtt_config_topic_rssi,
                 mqtt_config_message_rssi["state_topic"]
@@ -72,10 +75,13 @@ class NowqttDevices:
         if not device.has_entity(header["entity_id"]):
             new_client = mqtt.Client(client_id=''.join(random.choices(string.ascii_letters, k=22)))
 
+            print(header["entity_id"])
+
             t = Thread(target=mqtt_task.MQTTTask(
                 new_client,
                 mqtt_subscriptions,
-                header["mac_address_and_entity_id"],
+                header["device_mac_address_bytearray"],
+                header["entity_id"],
                 json.dumps(mqtt_config),
                 mqtt_config_topic,
                 mqtt_config["state_topic"]

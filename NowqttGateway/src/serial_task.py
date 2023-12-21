@@ -81,11 +81,12 @@ def expand_sensor_config(mqtt_config, mqtt_client_name, mqtt_topic):
 
 
 def expand_header_message(raw_header):
+    print(raw_header.hex())
     return {
         "device_mac_address_bytearray": bytearray(raw_header[:6]),
         "device_mac_address_int": int.from_bytes(bytearray(raw_header[:6]), "big"),
         "entity_id": raw_header[7],
-        "mac_address_and_entity_id": raw_header[:6] + raw_header[7],
+        "mac_address_and_entity_id": raw_header[:6] + raw_header[7:8],
         "command_type": raw_header[6]
     }
 
@@ -233,6 +234,9 @@ class SerialTask:
 
     def process_serial_message(self, message, raw_header):
         header = expand_header_message(raw_header)
+        print(header["device_mac_address_bytearray"].hex())
+        print(header["mac_address_and_entity_id"].hex())
+        print(header)
 
         # If device exists set last seen message
         if self.nowqtt_devices.has_device(header["device_mac_address_int"]):
@@ -255,8 +259,8 @@ class SerialTask:
         elif header["command_type"] == global_vars.SerialCommands.LOG.value:
             process_serial_log_message(message)
         # heartbeat
-        # elif header["command_type"] == global_vars.SerialCommands.HEARTBEAT.value:
-            # self.process_heartbeat(header, message)
+        elif header["command_type"] == global_vars.SerialCommands.HEARTBEAT.value:
+            self.process_heartbeat(header, 10)
 
     def disconnect_all_mqtt_clients(self):
         self.nowqtt_devices.mqtt_disconnect_all()
