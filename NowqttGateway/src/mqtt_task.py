@@ -44,23 +44,17 @@ class MQTTTask:
         logging.debug("topic: %s, msg: %s", msg.topic, msg.payload.decode("utf-8"))
 
         if splitted_topic[len(splitted_topic) - 1] == "com":
-            print(self.device_mac_address_bytearray.hex())
             handshake_message = bytearray()
             handshake_message.extend(self.device_mac_address_bytearray)
             handshake_message.append(global_vars.SerialCommands.COMMAND.value)
             handshake_message.append(self.entity_id[0])
 
-            print(handshake_message.hex())
-            print(msg.payload.hex())
-
             message = bytearray.fromhex("FF13AB00")
             message.extend(handshake_message)
             message.extend(msg.payload)
+            message.append(0)
 
             message[4 - 1] = len(message) - 4
-
-            print(message)
-            print(message.hex())
 
             global_vars.serial.write(message)
         elif msg.topic == "homeassistant/status":

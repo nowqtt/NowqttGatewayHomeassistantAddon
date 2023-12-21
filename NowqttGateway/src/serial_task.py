@@ -284,8 +284,8 @@ class SerialTask:
         logging.info("RUNNING")
 
         send_header = bytearray.fromhex("FF13AB06")
-        counter = 0
         while True:
+            counter = 0
             while counter < 3:
                 serial_begin_message = global_vars.serial.read(1)
 
