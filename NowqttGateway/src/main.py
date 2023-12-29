@@ -14,7 +14,7 @@ import serial_task
 
 if __name__ == '__main__':
     global_vars.config = {}
-    with open("config.yml", "r") as user_file:
+    with open("config.yaml", "r") as user_file:
         try:
             temp = yaml.safe_load(user_file)
             global_vars.config = temp['config']

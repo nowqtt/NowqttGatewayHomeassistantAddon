@@ -95,7 +95,9 @@ def process_serial_log_message(message):
     now = datetime.now()
     date_time = now.strftime("%H:%M:%S %m.%d.%Y")
 
-    with open("/app/logfile.txt", "a") as log_file:
+    logging.info(date_time + ": " + message)
+
+    with open("logfile.txt", "a") as log_file:
         log_file.write(date_time + "\t" + message + "\n")
 
 
@@ -283,7 +285,7 @@ class SerialTask:
 
         logging.info("RUNNING")
 
-        send_header = bytearray.fromhex("FF13AB06")
+        send_header = bytearray.fromhex("FF13AB")
         while True:
             counter = 0
             while counter < 3:
@@ -296,7 +298,7 @@ class SerialTask:
                 else:
                     counter = 0
 
-            message_length = int.from_bytes(global_vars.serial.read(1))
+            message_length = int.from_bytes(global_vars.serial.read(1), "little")
             if message_length == 0:
                 raise TimeoutError("Partner Timeout")
 
