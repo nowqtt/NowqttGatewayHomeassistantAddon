@@ -16,68 +16,26 @@ import mqtt_sensor_available_task
 from nowqtt_device_tree import NowqttDevices
 
 
-def expand_device_config(device):
-    device['identifiers'] = "ESP32 " + device.pop('i')
-    device['suggested_area'] = device.pop('s')
-    device['manufacturer'] = "Ich"
-    device['model'] = "ESP32"
-    device['name'] = device.pop('n')
-
-    # Set timeout to 60 seconds if not applied
-    if 't' in device:
-        device['seconds_until_timeout'] = device.pop('t')
-    else:
-        device['seconds_until_timeout'] = global_vars.config["default_seconds_until_timeout"]
-
-    return device
-
-
 def expand_sensor_config(mqtt_config, mqtt_client_name, mqtt_topic):
     platform = mqtt_topic.split("/")[1]
 
-    mqtt_config['name'] = mqtt_config.pop('n')
     mqtt_config['unique_id'] = mqtt_client_name
     mqtt_config['object_id'] = mqtt_client_name
-    # mqtt_config['availability_topic'] = availability_topic
 
     if global_vars.platforms[platform]['state']:
         mqtt_config['state_topic'] = mqtt_topic[:len(mqtt_topic) - 1] + "state"
     if global_vars.platforms[platform]['command']:
         mqtt_config['command_topic'] = mqtt_topic + "om"
 
-    # unit_of_measurement only in sensor
-    if 'um' in mqtt_config:
-        mqtt_config['unit_of_measurement'] = mqtt_config.pop('um')
-    # device_class only in sensor
-    if 'dc' in mqtt_config:
-        mqtt_config['device_class'] = mqtt_config.pop('dc')
-    if 'sc' in mqtt_config:
-        mqtt_config['state_class'] = mqtt_config.pop('sc')
+    seconds_until_timeout = global_vars.config["default_seconds_until_timeout"]
+    if 'sut' in mqtt_config['dev']:
+        seconds_until_timeout = mqtt_config['dev'].pop('sut')
 
-    # max only in number
-    if 'mx' in mqtt_config:
-        mqtt_config['max'] = mqtt_config.pop('mx')
-    # max only in number
-    if 'mn' in mqtt_config:
-        mqtt_config['min'] = mqtt_config.pop('mn')
-    # max only in number
-    if 'st' in mqtt_config:
-        mqtt_config['step'] = mqtt_config.pop('st')
-    # max only in number
-    if 'md' in mqtt_config:
-        mqtt_config['mode'] = mqtt_config.pop('md')
+    mqtt_config['availability_topic'] = ("homeassistant/available/" +
+                                         mqtt_config['dev']['ids'].replace(" ", "_"))
 
-    # options only in select
-    if 'o' in mqtt_config:
-        mqtt_config['options'] = mqtt_config.pop('o')
-
-    mqtt_config['device'] = expand_device_config(mqtt_config.pop('d'))
-
-    mqtt_config['availability_topic'] = "homeassistant/available/" + \
-                                        mqtt_config['device']['identifiers'].replace(" ", "_")
-
-    # logging.debug("MQTT Config: %s", mqtt_config)
-    return mqtt_config, int(mqtt_config['device'].pop('seconds_until_timeout'))
+    logging.debug("MQTT Config: %s", mqtt_config)
+    return mqtt_config, seconds_until_timeout
 
 
 def expand_header_message(raw_header):
@@ -109,32 +67,21 @@ def format_mqtt_rssi_config_topic(message, availability_topic):
     mqtt_topic_splitted = mqtt_topic.split("/")
     mqtt_topic_splitted[1] = "sensor"
     mqtt_topic_splitted[2] = "rssi"
-    mqtt_topic_splitted[3] = mqtt_config["d"]["i"] + "_rssi"
+    mqtt_topic_splitted[3] = mqtt_config["dev"]["ids"] + "_rssi"
 
     mqtt_topic = "/".join(mqtt_topic_splitted).replace(" ", "_")
 
     mqtt_client_name = mqtt_topic_splitted[3]
 
-    # TODO das irgendwie schöner gestalten und dynamisch machen
-    if 'um' in mqtt_config:
-        del mqtt_config['um']
-    if 'dc' in mqtt_config:
-        del mqtt_config['dc']
-    if 'sc' in mqtt_config:
-        del mqtt_config['sc']
-    if 'mx' in mqtt_config:
-        del mqtt_config['mx']
-    if 'mn' in mqtt_config:
-        del mqtt_config['mn']
-    if 'st' in mqtt_config:
-        del mqtt_config['st']
-    if 'md' in mqtt_config:
-        del mqtt_config['md']
-    if 'o' in mqtt_config:
-        del mqtt_config['o']
+    keys_to_delete = []
+    for key, value in mqtt_config.items():
+        if key not in ['dev']:
+            keys_to_delete.append(key)
 
-    del mqtt_config['n']
-    mqtt_config['name'] = mqtt_config['d']['n'] + " RSSI"
+    for key in keys_to_delete:
+        del mqtt_config[key]
+
+    mqtt_config['name'] = mqtt_config['dev']['name'] + " RSSI"
     mqtt_config['unique_id'] = mqtt_client_name
     mqtt_config['object_id'] = mqtt_client_name
     mqtt_config['device_class'] = 'signal_strength'
@@ -142,13 +89,11 @@ def format_mqtt_rssi_config_topic(message, availability_topic):
     mqtt_config['availability_topic'] = availability_topic
     mqtt_config['unit_of_measurement'] = 'dBm'
     mqtt_config['state_topic'] = mqtt_topic[:len(mqtt_topic) - 6] + "state"
-    mqtt_config['device'] = expand_device_config(mqtt_config.pop('d'))
 
-    # TODO das irgendwie schöner gestalten und dynamisch machen
-    if 'seconds_until_timeout' in mqtt_config['device']:
-        del mqtt_config['device']['seconds_until_timeout']
+    if 'sut' in mqtt_config['dev']:
+        del mqtt_config['dev']['seconds_until_timeout']
 
-    # logging.debug("MQTT RSSI Config: %s", mqtt_config)
+    logging.debug("MQTT RSSI Config: %s", mqtt_config)
 
     return mqtt_topic, mqtt_config
 
@@ -191,7 +136,11 @@ class SerialTask:
         mqtt_client_name = mqtt_topic.split("/")[3]
 
         try:
-            mqtt_config, seconds_until_timeout = expand_sensor_config(json.loads(mqtt_message), mqtt_client_name, mqtt_topic)
+            mqtt_config, seconds_until_timeout = expand_sensor_config(
+                json.loads(mqtt_message),
+                mqtt_client_name,
+                mqtt_topic
+            )
 
             if not self.nowqtt_devices.has_device_and_entity(header["device_mac_address_int"], header["entity_id"]):
                 mqtt_subscriptions = ["homeassistant/status"]
