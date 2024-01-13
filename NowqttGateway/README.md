@@ -75,88 +75,17 @@ Example (without spaces):
 
 ## Advertising message
 
-Messages look as follows. The 3 fives and 8 header bytes are not displayed
+It is recommended to use the [official abbreviations](https://www.home-assistant.io/integrations/mqtt/) for the advertising message 
 
-```json
-h/<platform>/<node_id>/<object_id>/c|
-{
-    "n":"<Name>",
-    "um":"<unit of measurement>", # optional
-    "dc":"<device_class>", # optional
-    "mx":"<Number max value>", # optional
-    "mn":"<Number min value>", # optional
-    "st":"<Number step", # optional
-    "md":"<Number mode", # optional
-    "o":"<Sensor options>", # optional
-    "sc":"<State Class>", # optional
-    "d":{
-        "i":"<identifiers>",
-        "s":"<suggested_area>",
-        "n":"<Device Name>",
-        "t":"<Timeout in Seconds>"
-    }
-}
-```
-Expands to:
-
-```json
-homeassistant/<platform>/<node_id>/<unique_id>/config|
-{
-    "name":"<name>",
-    "unique_id":"<unique_id>",
-    "state_topic":"homeassistant/<platform>/<node_id>/<unique_id>/state",
-    "command_topic":"homeassistant/<platform>/<node_id>/<unique_id>/com",
-    "unit_of_measurement":"<unit of measurement>", # optional
-    "device_class":"<device_class>", # optional
-    "max":"<Number max value>", # optional
-    "min":"<Number min value>", # optional
-    "step":"<Number step", # optional
-    "mode":"<Number mode", # optional
-    "options":"<Sensor options>", # optional
-    "state_class":"<State Class>", # optional
-    "device":{
-        "identifiers":"ESP32 <identifiers>",
-        "suggested_area":"<suggested_area>",
-        "manufacturer":"Ich",
-        "model":"ESP32",
-        "name":"<device name>",
-        "timeout_in_seconds": "<Timeout in Seconds>"
-    }
-}
-```
-[platforms](https://www.home-assistant.io/integrations/mqtt/#mqtt-discovery) 
-
-Example input:
-
-```json
-h/switch/on_off/irRemote_myRoom_soundSystem/c|
-{
-   "n":"ESP SoundSystem MyRoom",
-   "d":{
-      "i":"SoundSystem MyRoom",
-      "s":"Mein Zimmer",
-      "n":"ESP SoundSystem MyRoom"
-   }
-}
+Example client code in C:
+```C
+const char* mqtt_device_config = ",\"dev\":{\"ids\":\"ESP Test Plug\",\"sa\":\"Mein Zimmer\",\"name\":\"ESP Test Plug Abbreviations\",\"mf\":\"Ich\",\"mdl\":\"ESP32\"}}";
+nowqtt_entity_t nowqtt_smart_plug = {"h/switch/nowqtt/test_plug_abbr/c|{\"name\":\"Test Plug Abbreviations\"", true, "OFF", smart_plug_switchHandler};
 ```
 
-Example output:
-```json
-/switch/on_off/irRemote_myRoom_soundSystem/config|
-{
-   "name":"ESP SoundSystem MyRoom",
-   "unique_id":"irRemote_myRoom_soundSystem",
-   "state_topic":"homeassistant/switch/on_off/irRemote_myRoom_soundSystem/state",
-   "command_topic":"homeassistant/switch/on_off/irRemote_myRoom_soundSystem/com",
-   "device":{
-      "identifiers":"ESP8266 SoundSystem MyRoom",
-      "suggested_area":"Mein Zimmer",
-      "manufacturer":"Ich",
-      "model":"ESP8266",
-      "name":"ESP SoundSystem MyRoom"
-   }
-}
-```
+`unique_id`, `state_topic`, `command_topic` and `availability_topic` will be set by this program.
+
+Different [platforms](https://www.home-assistant.io/integrations/mqtt/#mqtt-discovery) (not all are supported yet)
 
 ## State and command message
 
