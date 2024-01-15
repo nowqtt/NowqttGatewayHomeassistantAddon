@@ -16,7 +16,7 @@ import mqtt_sensor_available_task
 from nowqtt_device_tree import NowqttDevices
 
 
-def expand_sensor_config(mqtt_config, mqtt_client_name, mqtt_topic):
+def expand_sensor_config(mqtt_config, mqtt_client_name, mqtt_topic, header):
     platform = mqtt_topic.split("/")[1]
 
     mqtt_config['unique_id'] = mqtt_client_name
@@ -31,6 +31,9 @@ def expand_sensor_config(mqtt_config, mqtt_client_name, mqtt_topic):
     if 'sut' in mqtt_config['dev']:
         seconds_until_timeout = mqtt_config['dev'].pop('sut')
 
+    mqtt_config['dev']['manufacturer'] = "nowqtt"
+    mqtt_config['dev']['model'] = header["device_mac_address_bytearray"].hex()
+
     mqtt_config['availability_topic'] = ("homeassistant/available/" +
                                          mqtt_config['dev']['ids'].replace(" ", "_"))
 
@@ -39,7 +42,6 @@ def expand_sensor_config(mqtt_config, mqtt_client_name, mqtt_topic):
 
 
 def expand_header_message(raw_header):
-    print(raw_header.hex())
     return {
         "device_mac_address_bytearray": bytearray(raw_header[:6]),
         "device_mac_address_int": int.from_bytes(bytearray(raw_header[:6]), "big"),
@@ -59,7 +61,7 @@ def process_serial_log_message(message):
         log_file.write(date_time + "\t" + message + "\n")
 
 
-def format_mqtt_rssi_config_topic(message, availability_topic):
+def format_mqtt_rssi_config_topic(message, availability_topic, header):
     mqtt_config = json.loads(message.split("|")[1])
 
     mqtt_topic = "homeassistant" + message.split("|")[0][1:] + "onfig"
@@ -92,6 +94,9 @@ def format_mqtt_rssi_config_topic(message, availability_topic):
 
     if 'sut' in mqtt_config['dev']:
         del mqtt_config['dev']['seconds_until_timeout']
+
+    mqtt_config['dev']['manufacturer'] = "nowqtt"
+    mqtt_config['dev']['model'] = header["device_mac_address_bytearray"].hex()
 
     logging.debug("MQTT RSSI Config: %s", mqtt_config)
 
@@ -139,7 +144,8 @@ class SerialTask:
             mqtt_config, seconds_until_timeout = expand_sensor_config(
                 json.loads(mqtt_message),
                 mqtt_client_name,
-                mqtt_topic
+                mqtt_topic,
+                header
             )
 
             if not self.nowqtt_devices.has_device_and_entity(header["device_mac_address_int"], header["entity_id"]):
@@ -152,7 +158,8 @@ class SerialTask:
                 # Prepare RSSI MQTT
                 mqtt_config_topic_rssi, mqtt_config_message_rssi = format_mqtt_rssi_config_topic(
                     message,
-                    mqtt_config['availability_topic']
+                    mqtt_config['availability_topic'],
+                    header
                 )
 
                 self.nowqtt_devices.add_element(header,
@@ -185,9 +192,6 @@ class SerialTask:
 
     def process_serial_message(self, message, raw_header):
         header = expand_header_message(raw_header)
-        print(header["device_mac_address_bytearray"].hex())
-        print(header["mac_address_and_entity_id"].hex())
-        print(header)
 
         # If device exists set last seen message
         if self.nowqtt_devices.has_device(header["device_mac_address_int"]):
