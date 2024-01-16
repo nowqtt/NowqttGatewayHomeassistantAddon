@@ -114,11 +114,14 @@ class SerialTask:
     def request_config_message(self, header):
         self.config_message_request_cooldown[header["device_mac_address_int"]] = time.time()
 
-        reset_message = header["device_mac_address_bytearray"]
-        reset_message.append(0)
+        reset_message = bytearray.fromhex("FF13AB00")
+        reset_message.extend(header["device_mac_address_bytearray"])
         reset_message.append(global_vars.SerialCommands.RESET.value)
         reset_message.append(0)
-        global_vars.serial.write(reset_message + b'\n\n\n')
+
+        reset_message[4 - 1] = len(reset_message) - 4
+
+        global_vars.serial.write(reset_message)
 
         logging.debug("request config on unknown state message")
 
