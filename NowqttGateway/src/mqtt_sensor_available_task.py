@@ -16,10 +16,12 @@ class MQTTSensorAvailableTask:
 
         devices_to_disconnect_mqtt = []
 
+        # for device_mac_address, device in self.nowqtt_devices.devices.items():
+        #     for entity in device.entities.values():
+        #         logging.debug(entity.mqtt_client._client_id.decode("utf-8"))
+
         for device_mac_address, device in self.nowqtt_devices.devices.items():
             if device.last_seen_timestamp + device.seconds_until_timeout < int(time.time()):
-                logging.debug(device.last_seen_timestamp)
-                logging.debug(device.seconds_until_timeout)
                 devices_to_disconnect_mqtt.append(device_mac_address)
 
                 device.rssi_entity.mqtt_publish_availability("offline")

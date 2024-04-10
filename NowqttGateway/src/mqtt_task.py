@@ -90,7 +90,7 @@ class MQTTTask:
         self.last_known_state = message
 
     def connect_to_mqtt(self):
-        logging.info('connect_to_mqtt')
+        logging.info('connect_to_mqtt %s', self.mqtt_client._client_id.decode("utf-8"))
 
         try:
             self.mqtt_client.connect(global_vars.mqtt_client_credentials["address"],

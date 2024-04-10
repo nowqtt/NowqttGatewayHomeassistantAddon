@@ -1,6 +1,5 @@
 import json
-import random
-import string
+import logging
 from typing import Dict
 import time
 
@@ -44,16 +43,13 @@ class NowqttDevices:
         if self.has_device(header["device_mac_address_int"]):
             device = self.devices[header["device_mac_address_int"]]
         else:
-            mqtt_client_rssi = mqtt.Client(client_id=''.join(random.choices(string.ascii_letters, k=22)))
-
-            device_entity_unique_identifier = bytearray(header["device_mac_address_bytearray"])
-            device_entity_unique_identifier.append(0)
+            mqtt_client_rssi = mqtt.Client(client_id=header["device_mac_address_bytearray"].hex() + "00")
 
             t = Thread(target=mqtt_task.MQTTTask(
                 mqtt_client_rssi,
                 ["homeassistant/status"],
                 header["device_mac_address_bytearray"],
-                header["entity_id"],
+                b'0',
                 json.dumps(mqtt_config_message_rssi),
                 mqtt_config_topic_rssi,
                 mqtt_config_message_rssi["state_topic"]
@@ -66,12 +62,13 @@ class NowqttDevices:
 
             new_rssi_entity = Entity(mqtt_config_message_rssi["state_topic"], mqtt_client_rssi, mqtt_config['availability_topic'])
             device = Device(seconds_until_timeout, new_rssi_entity)
+            device.entities[0] = new_rssi_entity
 
             device.rssi_entity.mqtt_publish_availability("online")
 
         # Test if entity exists
         if not device.has_entity(header["entity_id"]):
-            new_client = mqtt.Client(client_id=''.join(random.choices(string.ascii_letters, k=22)))
+            new_client = mqtt.Client(client_id=header["mac_address_and_entity_id"].hex())
 
             t = Thread(target=mqtt_task.MQTTTask(
                 new_client,
@@ -109,7 +106,7 @@ class Device:
         self.last_seen_timestamp = 0
         self.seconds_until_timeout = seconds_until_timeout
 
-        self.entities: Dict[bytearray, Entity] = {}
+        self.entities: Dict[int, Entity] = {}
         self.rssi_entity: Entity = rssi_entity
 
     def has_entity(self, entity_id):
@@ -139,4 +136,5 @@ class Entity:
         self.mqtt_client.publish(self.mqtt_availability_topic, state, 0, True)
 
     def mqtt_disconnect(self):
+        logging.debug("Disconnecting %s", self.mqtt_client._client_id.decode("utf-8"))
         self.mqtt_client.disconnect()

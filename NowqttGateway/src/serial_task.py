@@ -123,7 +123,7 @@ class SerialTask:
 
         global_vars.serial.write(reset_message)
 
-        logging.debug("request config on unknown state message")
+        logging.debug("request config on unknown state message. Header: %s\n", header["mac_address_and_entity_id"].hex())
 
     def process_mqtt_state_message(self, message, header):
         if self.nowqtt_devices.has_device_and_entity(header["device_mac_address_int"], header["entity_id"]):
