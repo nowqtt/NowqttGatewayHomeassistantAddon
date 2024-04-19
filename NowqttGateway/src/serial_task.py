@@ -36,28 +36,29 @@ class SerialTask:
         self.config_message_request_cooldown = {}
 
     def request_config_message(self, header):
-        self.config_message_request_cooldown[header["device_mac_address_int"]] = time.time()
+        self.config_message_request_cooldown[header["device_mac_address"]] = time.time()
 
-        reset_message = bytearray.fromhex("FF13AB00")
-        reset_message.extend(header["device_mac_address_bytearray"])
-        reset_message.append(global_vars.SerialCommands.RESET.value)
-        reset_message.append(0)
+        message = ("FF13AB00" +
+                   header["device_mac_address"] +
+                   "{:02d}".format(global_vars.SerialCommands.RESET.value) +
+                   "00")
 
+        reset_message = bytearray.fromhex(message)
         reset_message[4 - 1] = len(reset_message) - 4
 
         global_vars.serial.write(reset_message)
 
-        logging.debug("request config on unknown state message. Header: %s\n", header["mac_address_and_entity_id"].hex())
+        logging.debug("request config on unknown state message. Header: %s\n", header["device_mac_address"])
 
     def process_mqtt_state_message(self, message, header):
-        if self.nowqtt_devices.has_device_and_entity(header["device_mac_address_int"], header["entity_id"]):
-            entity = self.nowqtt_devices.get_entity(header["device_mac_address_int"], header["entity_id"])
+        if self.nowqtt_devices.has_device_and_entity(header["device_mac_address"], header["entity_id"]):
+            entity = self.nowqtt_devices.get_entity(header["device_mac_address"], header["entity_id"])
             entity.mqtt_publish(message)
         else:
             # Test if cooldown exists
-            if header["device_mac_address_int"] in self.config_message_request_cooldown:
+            if header["device_mac_address"] in self.config_message_request_cooldown:
                 # Test if cooldown is longer then five seconds ago
-                if time.time() - self.config_message_request_cooldown[header["device_mac_address_int"]] >= global_vars.config["cooldown_between_config_request_on_unknown_sensor"]:
+                if time.time() - self.config_message_request_cooldown[header["device_mac_address"]] >= global_vars.config["cooldown_between_config_request_on_unknown_sensor"]:
                     self.request_config_message(header)
             else:
                 self.request_config_message(header)
@@ -75,7 +76,7 @@ class SerialTask:
                 header
             )
 
-            if not self.nowqtt_devices.has_device_and_entity(header["device_mac_address_int"], header["entity_id"]):
+            if not self.nowqtt_devices.has_device_and_entity(header["device_mac_address"], header["entity_id"]):
                 mqtt_subscriptions = ["homeassistant/status"]
 
                 # If there is a command topic append it to the subscriptions
@@ -100,8 +101,8 @@ class SerialTask:
             logging.debug('JSON decoder Error')
 
     def process_heartbeat(self, header, message):
-        if self.nowqtt_devices.has_device(header["device_mac_address_int"]):
-            self.nowqtt_devices.devices[header["device_mac_address_int"]].rssi_entity.mqtt_publish(message)
+        if self.nowqtt_devices.has_device(header["device_mac_address"]):
+            self.nowqtt_devices.devices[header["device_mac_address"]].rssi_entity.mqtt_publish(message)
         else:
             self.request_config_message(header)
 
@@ -121,8 +122,8 @@ class SerialTask:
         header = expand_header_message(raw_header)
 
         # If device exists set last seen message
-        if self.nowqtt_devices.has_device(header["device_mac_address_int"]):
-            self.nowqtt_devices.set_last_seen_timestamp_to_now(header["device_mac_address_int"])
+        if self.nowqtt_devices.has_device(header["device_mac_address"]):
+            self.nowqtt_devices.set_last_seen_timestamp_to_now(header["device_mac_address"])
 
         # ESP has started. Disconnect and clear MQTT connections
         if header["command_type"] == global_vars.SerialCommands.RESET.value:
