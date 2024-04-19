@@ -31,6 +31,9 @@ def expand_sensor_config(mqtt_config, mqtt_client_name, mqtt_topic, header):
 
 def expand_header_message(raw_header):
     return {
+        "device_mac_address": raw_header[:6].hex(),
+        "device_mac_address_and_entity_id": (raw_header[:6] + raw_header[7:8]).hex(),
+
         "device_mac_address_bytearray": bytearray(raw_header[:6]),
         "device_mac_address_int": int.from_bytes(bytearray(raw_header[:6]), "big"),
         "entity_id": raw_header[7],
