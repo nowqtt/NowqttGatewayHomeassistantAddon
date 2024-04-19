@@ -6,3 +6,7 @@ __pycache__/
 app_config/
 
 logfile.txt
+
+NowqttGateway/src/config.yaml
+NowqttGateway/src/logfile.txt
+NowqttGateway/Dockerfile
