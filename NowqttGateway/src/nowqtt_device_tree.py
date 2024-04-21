@@ -40,16 +40,16 @@ class NowqttDevices:
         # logging.debug(mqtt_config)
 
         # Test if device exists
-        if self.has_device(header["device_mac_address_int"]):
-            device = self.devices[header["device_mac_address_int"]]
+        if self.has_device(header["device_mac_address"]):
+            device = self.devices[header["device_mac_address"]]
         else:
-            mqtt_client_rssi = mqtt.Client(client_id=header["device_mac_address_bytearray"].hex() + "00")
+            mqtt_client_rssi = mqtt.Client(client_id=header["device_mac_address"] + "00")
 
             t = Thread(target=mqtt_task.MQTTTask(
                 mqtt_client_rssi,
                 ["homeassistant/status"],
-                header["device_mac_address_bytearray"],
-                b'0',
+                header["device_mac_address"],
+                0,
                 json.dumps(mqtt_config_message_rssi),
                 mqtt_config_topic_rssi,
                 mqtt_config_message_rssi["state_topic"]
@@ -68,12 +68,12 @@ class NowqttDevices:
 
         # Test if entity exists
         if not device.has_entity(header["entity_id"]):
-            new_client = mqtt.Client(client_id=header["mac_address_and_entity_id"].hex())
+            new_client = mqtt.Client(client_id=header["device_mac_address_and_entity_id"])
 
             t = Thread(target=mqtt_task.MQTTTask(
                 new_client,
                 mqtt_subscriptions,
-                header["device_mac_address_bytearray"],
+                header["device_mac_address"],
                 header["entity_id"],
                 json.dumps(mqtt_config),
                 mqtt_config_topic,
@@ -90,7 +90,7 @@ class NowqttDevices:
 
         device.set_last_seen_timestamp_to_now()
 
-        self.devices[header["device_mac_address_int"]] = device
+        self.devices[header["device_mac_address"]] = device
 
     def set_last_seen_timestamp_to_now(self, device_mac_address):
         if self.has_device(device_mac_address):

@@ -20,7 +20,7 @@ def expand_sensor_config(mqtt_config, mqtt_client_name, mqtt_topic, header):
         seconds_until_timeout = mqtt_config['dev'].pop('sut')
 
     mqtt_config['dev']['manufacturer'] = "nowqtt"
-    mqtt_config['dev']['model'] = header["device_mac_address_bytearray"].hex()
+    mqtt_config['dev']['model'] = header["device_mac_address"]
 
     mqtt_config['availability_topic'] = ("homeassistant/available/" +
                                          mqtt_config['dev']['ids'].replace(" ", "_"))
@@ -31,10 +31,9 @@ def expand_sensor_config(mqtt_config, mqtt_client_name, mqtt_topic, header):
 
 def expand_header_message(raw_header):
     return {
-        "device_mac_address_bytearray": bytearray(raw_header[:6]),
-        "device_mac_address_int": int.from_bytes(bytearray(raw_header[:6]), "big"),
+        "device_mac_address": raw_header[:6].hex(),
+        "device_mac_address_and_entity_id": (raw_header[:6] + raw_header[7:8]).hex(),
         "entity_id": raw_header[7],
-        "mac_address_and_entity_id": raw_header[:6] + raw_header[7:8],
         "command_type": raw_header[6]
     }
 
@@ -74,7 +73,7 @@ def format_mqtt_rssi_config_topic(message, availability_topic, header):
         del mqtt_config['dev']['seconds_until_timeout']
 
     mqtt_config['dev']['manufacturer'] = "nowqtt"
-    mqtt_config['dev']['model'] = header["device_mac_address_bytearray"].hex()
+    mqtt_config['dev']['model'] = header["device_mac_address"]
 
     logging.debug("MQTT RSSI Config: %s", mqtt_config)
 

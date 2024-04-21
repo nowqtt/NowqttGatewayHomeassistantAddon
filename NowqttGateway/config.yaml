@@ -27,7 +27,6 @@ options:
     password: ""
     address: ""
     port: 1883
-  #TODO influx missing
 
 schema:
   log_level: list(DEBUG|INFO|WARNING|ERROR|CRITICAL|TEST)

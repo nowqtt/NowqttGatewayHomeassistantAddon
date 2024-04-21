@@ -15,22 +15,22 @@ def online_message_state(mqtt_client, mqtt_state_topic, last_known_state):
 
 class MQTTTask:
     def __init__(self,
-                    mqtt_client,
-                    subscriptions,
-                    device_mac_address_bytearray,
-                    entity_id,
-                    mqtt_config_message,
-                    mqtt_config_topic,
-                    mqtt_state_topic):
-            self.mqtt_client = mqtt_client
-            self.subscriptions = subscriptions
-            self.device_mac_address_bytearray = device_mac_address_bytearray
-            self.entity_id = entity_id,
-            self.mqtt_config_message = mqtt_config_message
-            self.mqtt_config_topic = mqtt_config_topic
-            self.mqtt_state_topic = mqtt_state_topic
+                 mqtt_client,
+                 subscriptions,
+                 device_mac_address,
+                 entity_id,
+                 mqtt_config_message,
+                 mqtt_config_topic,
+                 mqtt_state_topic):
+        self.mqtt_client = mqtt_client
+        self.subscriptions = subscriptions
+        self.device_mac_address = device_mac_address
+        self.entity_id = entity_id,
+        self.mqtt_config_message = mqtt_config_message
+        self.mqtt_config_topic = mqtt_config_topic
+        self.mqtt_state_topic = mqtt_state_topic
 
-            self.last_known_state = None
+        self.last_known_state = None
 
     def on_connect(self, client, userdata, flags, rc):
         logging.info("MQTT connected with result code %i", rc)
@@ -44,19 +44,18 @@ class MQTTTask:
         logging.debug("topic: %s, msg: %s", msg.topic, msg.payload.decode("utf-8"))
 
         if splitted_topic[len(splitted_topic) - 1] == "com":
-            handshake_message = bytearray()
-            handshake_message.extend(self.device_mac_address_bytearray)
-            handshake_message.append(global_vars.SerialCommands.COMMAND.value)
-            handshake_message.append(self.entity_id[0])
+            message = ("FF13AB00" +
+                            self.device_mac_address +
+                            "{:02d}".format(global_vars.SerialCommands.COMMAND.value) +
+                            "{:02d}".format(self.entity_id[0]))
 
-            message = bytearray.fromhex("FF13AB00")
-            message.extend(handshake_message)
-            message.extend(msg.payload)
-            message.append(0)
+            formatted_message = bytearray.fromhex(message)
+            formatted_message.extend(msg.payload)
+            formatted_message.append(0)
 
-            message[4 - 1] = len(message) - 4
+            formatted_message[4 - 1] = len(formatted_message) - 4
 
-            global_vars.serial.write(message)
+            global_vars.serial.write(formatted_message)
         elif msg.topic == "homeassistant/status":
             if msg.payload.decode("utf-8") == "online":
                 logging.debug('online message')
