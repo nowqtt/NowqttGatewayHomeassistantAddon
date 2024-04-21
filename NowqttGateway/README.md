@@ -62,7 +62,6 @@ class SerialCommands(Enum):
     CONFIG = 2
     STATE = 3
     COMMAND = 4
-    INFLUX = 5
     LOG = 6
     ACK = 7
 ```
@@ -90,20 +89,3 @@ Different [platforms](https://www.home-assistant.io/integrations/mqtt/#mqtt-disc
 ## State and command message
 
 Both messages start with 3 fives and 8 header bytes. The message follows immediately after these bytes.
-
-## Influx
-
-The message starts with 3 fives and 8 header bytes. The command type has to be set to INFLUX.
-
-```json
-{
-  "o": "<Name of Organisation",
-  "b": "<Name of Bucket",
-  "mn": "<Name of Message (Name of the datapoint)>",
-  "items": {
-    "key1": "<val1>",
-    "key2": "<val2>",
-    ...
-  }
-}
-```

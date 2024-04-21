@@ -11,7 +11,6 @@ class SerialCommands(Enum):
     CONFIG = 2
     STATE = 3
     COMMAND = 4
-    INFLUX = 5
     LOG = 6
     ACK = 7
 

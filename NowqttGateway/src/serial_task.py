@@ -8,7 +8,6 @@ import logging
 import atexit
 from datetime import datetime
 
-from influxdb_client import Point
 
 from threading import Thread
 
@@ -28,9 +27,7 @@ def process_serial_log_message(message):
 
 
 class SerialTask:
-    def __init__(self, influx_write_apis):
-        self.influx_write_apis = influx_write_apis
-
+    def __init__(self):
         self.nowqtt_devices = NowqttDevices()
 
         self.config_message_request_cooldown = {}
@@ -106,32 +103,14 @@ class SerialTask:
         else:
             self.request_config_message(header)
 
-    def process_serial_influx_message(self, message):
-        message_dict = json.loads(message)
-
-        organisation = message_dict["o"]
-        p = Point(message_dict["mn"])
-        bucket = message_dict["b"]
-
-        for key, value in message_dict["items"].items():
-            p.field(key, value)
-
-        self.influx_write_apis[organisation].write(bucket=bucket, record=p)
-
-    def process_serial_message(self, message, raw_header):
-        header = expand_header_message(raw_header)
-
-        # If device exists set last seen message
-        if self.nowqtt_devices.has_device(header["device_mac_address"]):
-            self.nowqtt_devices.set_last_seen_timestamp_to_now(header["device_mac_address"])
+    def process_serial_message(self, message, header):
+        # Set last seen message
+        self.nowqtt_devices.set_last_seen_timestamp_to_now(header["device_mac_address"])
 
         # ESP has started. Disconnect and clear MQTT connections
         if header["command_type"] == global_vars.SerialCommands.RESET.value:
             self.nowqtt_devices.mqtt_disconnect_all()
             self.nowqtt_devices = NowqttDevices()
-        # Influx insert message
-        elif header["command_type"] == global_vars.SerialCommands.INFLUX.value:
-            self.process_serial_influx_message(message)
         # MQTT state message
         elif header["command_type"] == global_vars.SerialCommands.STATE.value:
             self.process_mqtt_state_message(message, header)
@@ -188,4 +167,6 @@ class SerialTask:
 
             serial_message = global_vars.serial.read(message_length-8).decode("utf-8", errors='ignore').strip()
             logging.debug("Message: %s", serial_message)
-            self.process_serial_message(serial_message, serial_header)
+
+            header = expand_header_message(serial_header)
+            self.process_serial_message(serial_message, header)
