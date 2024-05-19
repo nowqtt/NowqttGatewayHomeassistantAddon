@@ -148,7 +148,7 @@ def fetch_traces(device_mac_address, last):
 
     result = {
         "total": len(traces),
-        "items": traces
+        "items": list(traces.values())
     }
 
     # Convert data to JSON format
