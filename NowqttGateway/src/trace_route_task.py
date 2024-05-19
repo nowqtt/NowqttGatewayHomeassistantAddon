@@ -1,3 +1,4 @@
+import copy
 import logging
 import threading
 import time
@@ -10,7 +11,11 @@ class TraceRouteTask:
         self.nowqtt_devices: NowqttDevices = nowqtt_devices
 
     def run(self):
+        mac_address_list = []
         for device_mac_address, device in self.nowqtt_devices.devices.items():
+            mac_address_list.append(copy.copy(device_mac_address))
+
+        for device_mac_address in mac_address_list:
             formatted_message = bytearray.fromhex("FF13AD06")
             formatted_message.extend(bytearray.fromhex(device_mac_address))
 
