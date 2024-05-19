@@ -3,6 +3,7 @@ from enum import Enum
 global serial
 global mqtt_client_credentials
 global config
+global sql_lite_connection
 
 
 class SerialCommands(Enum):

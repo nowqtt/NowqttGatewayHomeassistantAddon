@@ -10,3 +10,5 @@ logfile.txt
 NowqttGateway/src/config.yaml
 NowqttGateway/src/logfile.txt
 NowqttGateway/Dockerfile
+
+NowqttGateway/docker-compose.yaml

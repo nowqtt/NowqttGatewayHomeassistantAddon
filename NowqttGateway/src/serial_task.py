@@ -1,6 +1,8 @@
 import time
 from json import JSONDecodeError
 
+import uuid
+
 import global_vars
 
 import json
@@ -12,6 +14,7 @@ from datetime import datetime
 from threading import Thread
 
 import mqtt_sensor_available_task
+import trace_route_task
 from formatter import (
     expand_sensor_config,
     format_mqtt_rssi_config_topic,
@@ -24,6 +27,45 @@ def process_serial_log_message(message):
 
     with open("logfile.txt", "a") as log_file:
         log_file.write(datetime.now().strftime("%H:%M:%S %m.%d.%Y") + "\t" + message + "\n")
+
+
+def insert_trace_table(dest_mac_address, trace_uuid):
+    with global_vars.sql_lite_connection:
+        global_vars.sql_lite_connection.execute(
+            "INSERT INTO trace (uuid, dest_mac_address) VALUES (?, ?)",
+            (trace_uuid, dest_mac_address, )
+        )
+
+def insert_hop_table(trace_uuid, hop_counter, hop_mac_address, hop_rssi):
+    with global_vars.sql_lite_connection:
+        global_vars.sql_lite_connection.execute(
+            "INSERT INTO hop (trace_uuid, hop_counter, hop_mac_address, hop_rssi) VALUES (?, ?, ?, ?)",
+            (trace_uuid, hop_counter, hop_mac_address, hop_rssi, )
+        )
+
+
+def handle_trace_route_message():
+    message_length = int.from_bytes(global_vars.serial.read(1), "little")
+    if message_length == 0:
+        raise TimeoutError("Partner Timeout")
+
+    serial_header = global_vars.serial.read(6)
+    logging.debug("Trace Destination: %s", serial_header.hex())
+
+    serial_message = global_vars.serial.read(message_length-6)
+    serial_message_string = ''.join('{:02x}'.format(x) for x in serial_message)
+    logging.debug("Trace Message: %s", serial_message_string)
+
+    trace_uuid = str(uuid.uuid4())
+    insert_trace_table(serial_header.hex(), trace_uuid)
+
+    hop_count = int((message_length-6) / 7)
+    for x in range(hop_count):
+        hop_mac_address = serial_message_string[x*14:(x*14)+12]
+        hop_rssi_raw = serial_message_string[(x*14)+12:(x*14)+14]
+        hop_rssi = int(hop_rssi_raw, 16) - 256
+
+        insert_hop_table(trace_uuid, x, hop_mac_address, hop_rssi)
 
 
 class SerialTask:
@@ -140,12 +182,20 @@ class SerialTask:
         t.daemon = True
         t.start()
 
+        # Trace route
+        t = Thread(target=trace_route_task.TraceRouteTask(
+            self.nowqtt_devices
+        ).run())
+        t.daemon = True
+        t.start()
+
         # clear the serial input buffer
         global_vars.serial.reset_input_buffer()
 
         logging.info("RUNNING")
 
         send_header = bytearray.fromhex("FF13AB")
+        trace_header = bytearray.fromhex("FF13AD")
         while True:
             counter = 0
             while counter < 3:
@@ -153,8 +203,14 @@ class SerialTask:
 
                 if len(serial_begin_message) == 0:
                     raise TimeoutError("Partner Timeout")
-                if serial_begin_message == send_header[counter:counter + 1]:
+
+                if counter != 2 and serial_begin_message == send_header[counter:counter + 1]:
                     counter += 1
+                elif counter == 2 and serial_begin_message == send_header[counter:counter + 1]:
+                    counter += 1
+                elif counter == 2 and serial_begin_message == trace_header[counter:counter + 1]:
+                    handle_trace_route_message()
+                    counter = 0
                 else:
                     counter = 0
 
