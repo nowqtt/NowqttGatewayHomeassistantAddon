@@ -5,25 +5,25 @@ import global_vars
 
 def find_qb():
     return """
-                SELECT 
-                    trace.uuid, 
-                    trace.dest_mac_address, 
-                    trace.timestamp,
-                    hop.hop_counter,
-                    hop.hop_mac_address,
-                    hop.hop_rssi
-                FROM trace
-                LEFT JOIN hop ON trace.uuid = hop.trace_uuid
-            """
+        SELECT 
+            trace.uuid, 
+            trace.dest_mac_address, 
+            trace.timestamp,
+            hop.hop_counter,
+            hop.hop_mac_address,
+            hop.hop_rssi
+        FROM trace
+        LEFT JOIN hop ON trace.uuid = hop.trace_uuid
+    """
 
 def find_trace_qb():
     return """
-                SELECT
-                    trace.uuid, 
-                    trace.dest_mac_address, 
-                    trace.timestamp
-                FROM trace
-            """
+        SELECT
+            trace.uuid, 
+            trace.dest_mac_address, 
+            trace.timestamp
+        FROM trace
+    """
 
 def handle_filters(filters):
     query = ""
@@ -89,7 +89,34 @@ def find_with_filters(filters, last):
     cursor.execute(query)
     return cursor.fetchall()
 
-def fetch_trace_data(device_mac_address, last):
+def find_devices():
+    query = """
+        SELECT DISTINCT
+            trace.dest_mac_address
+        FROM trace
+    """
+
+    cursor = global_vars.sql_lite_connection.cursor()
+    cursor.execute(query)
+    return cursor.fetchall()
+
+def fetch_devices():
+    rows = find_devices()
+
+    devices = []
+    for row in rows:
+        devices.append(row[0])
+
+    result = {
+        "total": len(devices),
+        "items": devices
+    }
+
+    # Convert data to JSON format
+    json_data = json.dumps(result, indent=4)
+    return json_data
+
+def fetch_traces(device_mac_address, last):
     filters = []
 
     if device_mac_address is not None:
