@@ -31,7 +31,7 @@ paths:
             type: string
             minLength: 12
             maxLength: 12
-        - name: limit
+        - name: last
           in: query
           required: false
           schema:

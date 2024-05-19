@@ -54,6 +54,8 @@ def find_trace_with_filters(filters, last):
     if last is not None:
         query += " LIMIT " + last
 
+    logging.info(query)
+
     cursor = global_vars.sql_lite_connection.cursor()
     cursor.execute(query)
     return cursor.fetchall()
@@ -122,7 +124,7 @@ def fetch_traces(device_mac_address, last):
     if device_mac_address is not None:
         filters.append("trace.dest_mac_address like '" + device_mac_address + "'")
 
-    if len(filters) > 0:
+    if len(filters) > 0 or last is not None:
         rows = find_with_filters(filters, last)
     else:
         rows = find_all()
