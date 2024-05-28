@@ -8,8 +8,7 @@ import serial
 
 import yaml
 
-import serial_task
-
+from gateway import SerialTask
 from webserver import webserver
 from database import create_tables
 
@@ -43,4 +42,4 @@ if __name__ == '__main__':
     global_vars.serial = serial.Serial(com_port, baudrate)
 
     # Start serial_task
-    serial_task.SerialTask().start_serial_task()
+    SerialTask().start_serial_task()

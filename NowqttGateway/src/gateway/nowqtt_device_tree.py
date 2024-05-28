@@ -5,7 +5,8 @@ import time
 
 import paho.mqtt.client as mqtt
 from threading import Thread
-import mqtt_task
+
+from . import mqtt_task
 
 
 class NowqttDevices:

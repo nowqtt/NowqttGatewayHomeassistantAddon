@@ -13,19 +13,21 @@ from datetime import datetime
 
 from threading import Thread
 
-import mqtt_sensor_available_task
-import trace_route_task
-from formatter import (
+from . import mqtt_sensor_available_task
+
+from . import trace_route_task
+
+from .formatter import (
     expand_sensor_config,
     format_mqtt_rssi_config_topic,
     expand_header_message)
-from nowqtt_device_tree import NowqttDevices
+from .nowqtt_device_tree import NowqttDevices
 
 
 def process_serial_log_message(message):
     logging.info(message)
 
-    with open("logfile.txt", "a") as log_file:
+    with open("../logfile.txt", "a") as log_file:
         log_file.write(datetime.now().strftime("%H:%M:%S %m.%d.%Y") + "\t" + message + "\n")
 
 

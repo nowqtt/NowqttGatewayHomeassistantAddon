@@ -1,4 +1,3 @@
-import json
 import logging
 
 import global_vars

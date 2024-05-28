@@ -3,7 +3,8 @@ import logging
 import threading
 import time
 
-from nowqtt_device_tree import NowqttDevices
+from .nowqtt_device_tree import NowqttDevices
+
 import global_vars
 
 class TraceRouteTask:
