@@ -5,7 +5,7 @@ from flask import Flask, request, Response
 from flasgger import Swagger
 
 import global_vars
-import db_helper
+from database import db_helper
 
 app = Flask(__name__)
 app.config['SWAGGER'] = {
@@ -25,8 +25,8 @@ def traces():
     last = request.args.get('last', default=None, type=str)
 
     return Response(response=db_helper.fetch_traces(device_mac_address, last),
-                        status=200,
-                        mimetype="application/json")
+                    status=200,
+                    mimetype="application/json")
 
 @app.route("/", methods=['GET'])
 def home():
