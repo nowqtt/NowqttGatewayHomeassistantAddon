@@ -5,7 +5,8 @@ from flask import Flask, request, Response
 from flasgger import Swagger
 
 import global_vars
-from database import db_helper
+
+from .webserver_helper import fetch_traces, fetch_devices
 
 app = Flask(__name__)
 app.config['SWAGGER'] = {
@@ -15,7 +16,7 @@ swagger = Swagger(app, template_file=os.path.abspath('/app/spec/swagger.yaml'))
 
 @app.route("/v1/devices", methods=['GET'], endpoint='devices')
 def devices():
-    return Response(response=db_helper.fetch_devices(),
+    return Response(response=fetch_devices(),
                     status=200,
                     mimetype="application/json")
 
@@ -24,7 +25,7 @@ def traces():
     device_mac_address = request.args.get('device_mac_address', default=None, type=str)
     last = request.args.get('last', default=None, type=str)
 
-    return Response(response=db_helper.fetch_traces(device_mac_address, last),
+    return Response(response=fetch_traces(device_mac_address, last),
                     status=200,
                     mimetype="application/json")
 

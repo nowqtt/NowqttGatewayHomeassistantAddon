@@ -9,8 +9,8 @@ import serial
 import yaml
 
 import serial_task
-import web_server
 
+from webserver import webserver
 from database import create_tables
 
 if __name__ == '__main__':
@@ -32,7 +32,7 @@ if __name__ == '__main__':
 
     create_tables()
 
-    flask_thread = threading.Thread(target=web_server.run)
+    flask_thread = threading.Thread(target=webserver.run)
     flask_thread.start()
 
     com_port = global_vars.config["serial"]["com_port"]
