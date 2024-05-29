@@ -1,4 +1,3 @@
-import json
 import logging
 import sqlite3
 import threading
@@ -31,8 +30,7 @@ if __name__ == '__main__':
 
     create_tables()
 
-    flask_thread = threading.Thread(target=webserver.run)
-    flask_thread.start()
+    threading.Thread(target=webserver.run).start()
 
     com_port = global_vars.config["serial"]["com_port"]
     baudrate = global_vars.config["serial"]["baudrate"]

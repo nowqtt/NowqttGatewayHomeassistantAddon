@@ -23,6 +23,13 @@ def create_tables():
             )
         ''')
 
+        global_vars.sql_lite_connection.execute('''
+            CREATE TABLE IF NOT EXISTS device_names (
+                mac_address TEXT PRIMARY KEY,
+                name TEXT NOT NULL
+            )
+        ''')
+
         global_vars.sql_lite_connection.execute(
             'CREATE INDEX IF NOT EXISTS dest_mac_address_index ON trace(dest_mac_address);'
         )

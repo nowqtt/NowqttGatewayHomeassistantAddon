@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 
@@ -6,7 +7,8 @@ from flasgger import Swagger
 
 import global_vars
 
-from .webserver_helper import fetch_traces, fetch_devices
+from .webserver_helper import fetch_traces, fetch_devices, fetch_devices_names, patch_devices_names, \
+    delete_devices_names
 
 app = Flask(__name__)
 app.config['SWAGGER'] = {
@@ -19,6 +21,33 @@ def devices():
     return Response(response=fetch_devices(),
                     status=200,
                     mimetype="application/json")
+
+@app.route('/v1/devices/names', methods=['GET'])
+def devices_names():
+    return Response(response=fetch_devices_names(),
+                    status=200,
+                    mimetype="application/json")
+
+@app.route('/v1/devices/<device_mac_address>/names', methods=['GET', 'PATCH', 'DELETE'])
+def devices_device_mac_address_names(device_mac_address):
+    if request.method == 'GET':
+        return Response(response=fetch_devices_names(device_mac_address),
+                        status=200,
+                        mimetype="application/json")
+
+    elif request.method == 'PATCH':
+        name = request.get_json().get('name')
+
+        patch_devices_names(device_mac_address, name)
+
+        return Response(response=json.dumps({"name": name, "mac_address": device_mac_address}, indent=4),
+                        status=201,
+                        mimetype="application/json")
+
+    elif request.method == 'DELETE':
+        delete_devices_names(device_mac_address)
+
+        return Response(status=204)
 
 @app.route("/v1/traces", methods=['GET'], endpoint='traces')
 def traces():

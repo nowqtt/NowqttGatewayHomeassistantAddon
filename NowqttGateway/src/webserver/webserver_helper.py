@@ -1,6 +1,9 @@
 import json
+import logging
 
-from database import find_with_filters, find_all, find_devices
+from database import find_with_filters, find_all, find_devices, find_device_names, update_devices_names, \
+    insert_devices_names, remove_devices_names
+
 
 def fetch_devices():
     rows = find_devices()
@@ -56,3 +59,33 @@ def fetch_traces(device_mac_address, last):
     # Convert data to JSON format
     json_data = json.dumps(result, indent=4)
     return json_data
+
+def fetch_devices_names(mac_address = None):
+    rows = find_device_names(mac_address)
+
+    names = []
+    for row in rows:
+        names.append({
+            "name": row[0],
+            "mac_address": row[1]
+        })
+
+    result = {
+        "total": len(names),
+        "items": names
+    }
+
+    # Convert data to JSON format
+    json_data = json.dumps(result, indent=4)
+    return json_data
+
+def patch_devices_names(mac_address, name):
+    rows = find_device_names(mac_address)
+
+    if len(rows) != 0:
+        update_devices_names(mac_address, name)
+    else:
+        insert_devices_names(mac_address, name)
+
+def delete_devices_names(mac_address):
+    remove_devices_names(mac_address)

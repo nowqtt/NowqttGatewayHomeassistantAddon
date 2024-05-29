@@ -15,6 +15,7 @@ servers:
 tags:
   - name: Traces
   - name: Devices
+  - name: DevicesNames
 
 paths:
   /traces:
@@ -77,6 +78,79 @@ paths:
         500:
           description: Internal server error
 
+  /devices/{device_mac_address}/names:
+    parameters:
+      - name: device_mac_address
+        in: path
+        schema:
+          type: string
+        required: true
+        description: Mac_address for the name
+    get:
+      summary: Get a list of devices names
+      description: Returns a list of devices names
+      tags:
+        - Devices
+      responses:
+        200:
+          description: A list of devices names
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Devices_Names'
+
+    patch:
+      summary: Add a device name
+      description: Add a device name
+      tags:
+        - DevicesNames
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        201:
+          description: Add a device name
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Devices_Names'
+
+    delete:
+      summary: Delete a device name
+      description: Delete a device name
+      tags:
+        - DevicesNames
+      responses:
+        204:
+          description: Add a device name
+
+  /devices/names:
+    get:
+      summary: Get a list of devices names
+      description: Returns a list of devices names
+      tags:
+        - Devices
+      responses:
+        200:
+          description: A list of devices names
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: number
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Devices_Names'
+
 components:
   schemas:
 
@@ -104,3 +178,11 @@ components:
             type: string
           hop_rssi:
             type: integer
+
+    Devices_Names:
+      type: object
+      properties:
+        name:
+          type: string
+        mac_address:
+          type: string
