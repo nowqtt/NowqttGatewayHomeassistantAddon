@@ -8,9 +8,11 @@ def find_qb():
             trace.timestamp,
             hop.hop_counter,
             hop.hop_mac_address,
-            hop.hop_rssi
+            hop.hop_rssi,
+            device_names.name
         FROM trace
         LEFT JOIN hop ON trace.uuid = hop.trace_uuid
+        LEFT JOIN device_names ON hop.hop_mac_address = device_names.mac_address
     """
 
 def find_trace_qb():
@@ -97,8 +99,10 @@ def find_with_filters(filters, last):
 def find_devices():
     query = """
         SELECT DISTINCT
-            trace.dest_mac_address
+            trace.dest_mac_address,
+            device_names.name
         FROM trace
+        LEFT JOIN device_names ON trace.dest_mac_address = device_names.mac_address
     """
 
     cursor = global_vars.sql_lite_connection.cursor()

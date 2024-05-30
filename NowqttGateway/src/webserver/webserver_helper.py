@@ -10,7 +10,10 @@ def fetch_devices():
 
     devices = []
     for row in rows:
-        devices.append(row[0])
+        devices.append({
+            "mac_address": row[0],
+            "name": row[1]
+        })
 
     result = {
         "total": len(devices),
@@ -47,7 +50,8 @@ def fetch_traces(device_mac_address, last):
             hop_data = {
                 "hop_counter": row[3],
                 "hop_mac_address": row[4],
-                "hop_rssi": row[5]
+                "hop_rssi": row[5],
+                "name": row[6]
             }
             traces[trace_uuid]["hops"].append(hop_data)
 
