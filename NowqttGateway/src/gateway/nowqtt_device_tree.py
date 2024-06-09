@@ -6,6 +6,7 @@ import time
 import paho.mqtt.client as mqtt
 from threading import Thread
 
+from database import insert_device_activity_table
 from . import mqtt_task
 
 
@@ -67,6 +68,8 @@ class NowqttDevices:
 
             device.rssi_entity.mqtt_publish_availability("online")
 
+            insert_device_activity_table(header["device_mac_address"], 1)
+
         # Test if entity exists
         if not device.has_entity(header["entity_id"]):
             new_client = mqtt.Client(client_id=header["device_mac_address_and_entity_id"])
@@ -100,6 +103,9 @@ class NowqttDevices:
     def mqtt_disconnect_all(self):
         for device in self.devices.values():
             device.mqtt_disconnect_all()
+
+        for mac_address in self.devices.keys():
+            insert_device_activity_table(mac_address, 0)
 
 
 class Device:

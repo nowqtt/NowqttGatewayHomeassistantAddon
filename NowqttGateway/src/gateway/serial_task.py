@@ -13,6 +13,7 @@ from datetime import datetime
 
 from threading import Thread
 
+from database import insert_hop_table, insert_trace_table
 from . import mqtt_sensor_available_task
 
 from . import trace_route_task
@@ -29,21 +30,6 @@ def process_serial_log_message(message):
 
     with open("../logfile.txt", "a") as log_file:
         log_file.write(datetime.now().strftime("%H:%M:%S %m.%d.%Y") + "\t" + message + "\n")
-
-
-def insert_trace_table(dest_mac_address, trace_uuid):
-    with global_vars.sql_lite_connection:
-        global_vars.sql_lite_connection.execute(
-            "INSERT INTO trace (uuid, dest_mac_address) VALUES (?, ?)",
-            (trace_uuid, dest_mac_address, )
-        )
-
-def insert_hop_table(trace_uuid, hop_counter, hop_mac_address, hop_rssi):
-    with global_vars.sql_lite_connection:
-        global_vars.sql_lite_connection.execute(
-            "INSERT INTO hop (trace_uuid, hop_counter, hop_mac_address, hop_rssi) VALUES (?, ?, ?, ?)",
-            (trace_uuid, hop_counter, hop_mac_address, hop_rssi, )
-        )
 
 
 def handle_trace_route_message():

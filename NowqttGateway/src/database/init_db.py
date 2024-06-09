@@ -30,6 +30,15 @@ def create_tables():
             )
         ''')
 
+        global_vars.sql_lite_connection.execute('''
+            CREATE TABLE IF NOT EXISTS device_activity (
+                mac_address TEXT,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                activity INTEGER,
+                PRIMARY KEY (mac_address, timestamp)
+            )
+        ''')
+
         global_vars.sql_lite_connection.execute(
             'CREATE INDEX IF NOT EXISTS dest_mac_address_index ON trace(dest_mac_address);'
         )

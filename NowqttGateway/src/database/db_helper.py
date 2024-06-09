@@ -1,3 +1,5 @@
+import logging
+
 import global_vars
 
 def find_qb():
@@ -147,3 +149,26 @@ def remove_devices_names(mac_address):
 
     cursor = global_vars.sql_lite_connection.cursor()
     cursor.execute(query)
+
+def insert_trace_table(dest_mac_address, trace_uuid):
+    with global_vars.sql_lite_connection:
+        global_vars.sql_lite_connection.execute(
+            "INSERT INTO trace (uuid, dest_mac_address) VALUES (?, ?)",
+            (trace_uuid, dest_mac_address, )
+        )
+
+def insert_hop_table(trace_uuid, hop_counter, hop_mac_address, hop_rssi):
+    with global_vars.sql_lite_connection:
+        global_vars.sql_lite_connection.execute(
+            "INSERT INTO hop (trace_uuid, hop_counter, hop_mac_address, hop_rssi) VALUES (?, ?, ?, ?)",
+            (trace_uuid, hop_counter, hop_mac_address, hop_rssi, )
+        )
+
+def insert_device_activity_table(mac_address, activity):
+    logging.info(mac_address)
+    logging.info(activity)
+    with global_vars.sql_lite_connection:
+        global_vars.sql_lite_connection.execute(
+            "INSERT INTO device_activity (mac_address, activity) VALUES (?, ?)",
+            (mac_address, activity)
+        )

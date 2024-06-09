@@ -2,6 +2,7 @@ import logging
 import threading
 import time
 
+from database import insert_device_activity_table
 from .nowqtt_device_tree import NowqttDevices
 
 
@@ -25,6 +26,8 @@ class MQTTSensorAvailableTask:
                 devices_to_disconnect_mqtt.append(device_mac_address)
 
                 device.rssi_entity.mqtt_publish_availability("offline")
+
+                insert_device_activity_table(device_mac_address, 0)
 
         # Disconnect selected clients
         for device in devices_to_disconnect_mqtt:
