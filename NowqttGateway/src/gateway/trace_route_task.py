@@ -17,7 +17,7 @@ class TraceRouteTask:
             mac_address_list.append(copy.copy(device_mac_address))
 
         for device_mac_address in mac_address_list:
-            formatted_message = bytearray.fromhex("FF13AD06")
+            formatted_message = bytearray.fromhex("FF13ABFF06")
             formatted_message.extend(bytearray.fromhex(device_mac_address))
 
             global_vars.serial.write(formatted_message)

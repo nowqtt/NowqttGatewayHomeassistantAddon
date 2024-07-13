@@ -44,7 +44,7 @@ class MQTTTask:
         logging.debug("topic: %s, msg: %s", msg.topic, msg.payload.decode("utf-8"))
 
         if splitted_topic[len(splitted_topic) - 1] == "com":
-            message = ("FF13AB00" +
+            message = ("FF13AB0100" +
                             self.device_mac_address +
                             "{:02d}".format(global_vars.SerialCommands.COMMAND.value) +
                             "{:02d}".format(self.entity_id[0]))
@@ -53,7 +53,7 @@ class MQTTTask:
             formatted_message.extend(msg.payload)
             formatted_message.append(0)
 
-            formatted_message[4 - 1] = len(formatted_message) - 4
+            formatted_message[4] = len(formatted_message) - 5
 
             global_vars.serial.write(formatted_message)
         elif msg.topic == "homeassistant/status":

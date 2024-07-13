@@ -65,13 +65,13 @@ class SerialTask:
     def request_config_message(self, header):
         self.config_message_request_cooldown[header["device_mac_address"]] = time.time()
 
-        message = ("FF13AB00" +
+        message = ("FF13AB0100" +
                    header["device_mac_address"] +
                    "{:02d}".format(global_vars.SerialCommands.RESET.value) +
                    "00")
 
         reset_message = bytearray.fromhex(message)
-        reset_message[4 - 1] = len(reset_message) - 4
+        reset_message[4] = len(reset_message) - 5
 
         global_vars.serial.write(reset_message)
 
@@ -183,7 +183,6 @@ class SerialTask:
         logging.info("RUNNING")
 
         send_header = bytearray.fromhex("FF13AB")
-        trace_header = bytearray.fromhex("FF13AD")
         while True:
             counter = 0
             while counter < 3:
@@ -191,26 +190,24 @@ class SerialTask:
 
                 if len(serial_begin_message) == 0:
                     raise TimeoutError("Partner Timeout")
-
-                if counter != 2 and serial_begin_message == send_header[counter:counter + 1]:
+                if serial_begin_message == send_header[counter:counter + 1]:
                     counter += 1
-                elif counter == 2 and serial_begin_message == send_header[counter:counter + 1]:
-                    counter += 1
-                elif counter == 2 and serial_begin_message == trace_header[counter:counter + 1]:
-                    handle_trace_route_message()
-                    counter = 0
                 else:
                     counter = 0
 
-            message_length = int.from_bytes(global_vars.serial.read(1), "little")
-            if message_length == 0:
-                raise TimeoutError("Partner Timeout")
+            service_byte = global_vars.serial.read(1)
+            if service_byte == b'FF':
+                handle_trace_route_message()
+            else:
+                message_length = int.from_bytes(global_vars.serial.read(1), "little")
+                if message_length == 0:
+                    raise TimeoutError("Partner Timeout")
 
-            serial_header = global_vars.serial.read(8)
-            logging.debug("Header: %s", serial_header.hex())
+                serial_header = global_vars.serial.read(8)
+                logging.debug("Header: %s", serial_header.hex())
 
-            serial_message = global_vars.serial.read(message_length-8).decode("utf-8", errors='ignore').strip()
-            logging.debug("Message: %s", serial_message)
+                serial_message = global_vars.serial.read(message_length-8).decode("utf-8", errors='ignore').strip()
+                logging.debug("Message: %s", serial_message)
 
-            header = expand_header_message(serial_header)
-            self.process_serial_message(serial_message, header)
+                header = expand_header_message(serial_header)
+                self.process_serial_message(serial_message, header)
