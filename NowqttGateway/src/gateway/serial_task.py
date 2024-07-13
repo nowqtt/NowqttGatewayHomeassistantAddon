@@ -196,7 +196,7 @@ class SerialTask:
                     counter = 0
 
             service_byte = global_vars.serial.read(1)
-            if service_byte == b'FF':
+            if service_byte.hex() == "ff":
                 handle_trace_route_message()
             else:
                 message_length = int.from_bytes(global_vars.serial.read(1), "little")
