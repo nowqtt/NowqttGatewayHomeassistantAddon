@@ -3,6 +3,8 @@ import global_vars
 import threading
 import time
 
+from .serial_send_helper import send_serial_message
+
 
 def online_message_config(mqtt_client, mqtt_config_topic, mqtt_config_message):
     mqtt_client.publish(mqtt_config_topic, mqtt_config_message)
@@ -44,18 +46,13 @@ class MQTTTask:
         logging.debug("topic: %s, msg: %s", msg.topic, msg.payload.decode("utf-8"))
 
         if splitted_topic[len(splitted_topic) - 1] == "com":
-            message = ("FF13AB0100" +
-                            self.device_mac_address +
-                            "{:02d}".format(global_vars.SerialCommands.COMMAND.value) +
-                            "{:02d}".format(self.entity_id[0]))
-
-            formatted_message = bytearray.fromhex(message)
-            formatted_message.extend(msg.payload)
-            formatted_message.append(0)
-
-            formatted_message[4] = len(formatted_message) - 5
-
-            global_vars.serial.write(formatted_message)
+            send_serial_message(
+                "01",
+                self.device_mac_address,
+                global_vars.SerialCommands.COMMAND.value,
+                self.entity_id[0],
+                msg.payload
+            )
         elif msg.topic == "homeassistant/status":
             if msg.payload.decode("utf-8") == "online":
                 logging.debug('online message')

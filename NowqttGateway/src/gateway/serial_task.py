@@ -23,6 +23,7 @@ from .formatter import (
     format_mqtt_rssi_config_topic,
     expand_header_message)
 from .nowqtt_device_tree import NowqttDevices
+from .serial_send_helper import send_serial_message
 
 
 def process_serial_log_message(message):
@@ -65,15 +66,13 @@ class SerialTask:
     def request_config_message(self, header):
         self.config_message_request_cooldown[header["device_mac_address"]] = time.time()
 
-        message = ("FF13AB0100" +
-                   header["device_mac_address"] +
-                   "{:02d}".format(global_vars.SerialCommands.RESET.value) +
-                   "00")
-
-        reset_message = bytearray.fromhex(message)
-        reset_message[4] = len(reset_message) - 5
-
-        global_vars.serial.write(reset_message)
+        send_serial_message(
+            "01",
+            header["device_mac_address"],
+            global_vars.SerialCommands.RESET.value,
+            0,
+            None
+        )
 
         logging.debug("request config on unknown state message. Header: %s\n", header["device_mac_address"])
 
