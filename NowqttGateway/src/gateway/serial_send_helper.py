@@ -9,7 +9,7 @@ def send_serial_message(service, mac_address, serial_command_type, entity_id, pa
 
     if serial_command_type is not None and entity_id is not None:
         message += "{:02d}".format(serial_command_type) # message type
-        message += "{:02d}".format(entity_id)   # destination entity ID
+        message += "{:02X}".format(entity_id)   # destination entity ID
 
     formatted_message = bytearray.fromhex(message)
     if payload is not None:

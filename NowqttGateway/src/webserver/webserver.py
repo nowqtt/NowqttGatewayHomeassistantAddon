@@ -52,7 +52,7 @@ def devices_device_mac_address_names(device_mac_address):
 @app.route("/v1/traces", methods=['GET'], endpoint='traces')
 def traces():
     device_mac_address = request.args.get('device_mac_address', default=None, type=str)
-    last = request.args.get('last', default=None, type=str)
+    last = request.args.get('last', default="100", type=str)
 
     return Response(response=fetch_traces(device_mac_address, last),
                     status=200,
