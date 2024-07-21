@@ -5,13 +5,14 @@ from .db_migration import db_migration_0, db_migration_1
 
 
 def insert_migration(migrations_id):
-    query = f"""
-        INSERT INTO migration (id)
-        VALUES ('{migrations_id}')
-    """
+    with global_vars.sql_lite_connection:
+        query = f"""
+            INSERT INTO migration (id)
+            VALUES (?)
+        """
 
-    cursor = global_vars.sql_lite_connection.cursor()
-    cursor.execute(query)
+        global_vars.sql_lite_connection.execute(query, (migrations_id, ))
+
 
 def create_tables():
     global_vars.sql_lite_connection.execute('''
@@ -22,10 +23,10 @@ def create_tables():
     ''')
 
     cursor = global_vars.sql_lite_connection.cursor()
-    cursor.execute("SELECT id FROM migration ORDER BY id DESC LIMIT 1;")
+    cursor.execute("SELECT id, timestamp FROM migration ORDER BY id DESC LIMIT 1;")
     migration_rows = cursor.fetchall()
 
-    skip_migrations = 0
+    skip_migrations = -1
     if len(migration_rows) > 0:
         skip_migrations = migration_rows[0][0]
 

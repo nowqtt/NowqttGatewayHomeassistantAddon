@@ -53,6 +53,10 @@ def db_migration_0():
 def db_migration_1():
     global_vars.sql_lite_connection.execute('''
         ALTER TABLE hop ADD COLUMN hop_dest_seq INTEGER NOT NULL;
+    ''')
+    global_vars.sql_lite_connection.execute('''
         ALTER TABLE hop ADD COLUMN hop_age INTEGER NOT NULL;
+    ''')
+    global_vars.sql_lite_connection.execute('''
         ALTER TABLE hop ADD COLUMN hop_count INTEGER NOT NULL;
     ''')
