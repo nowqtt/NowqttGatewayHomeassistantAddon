@@ -11,7 +11,10 @@ def find_qb():
             hop.hop_counter,
             hop.hop_mac_address,
             hop.hop_rssi,
-            device_names.name
+            device_names.name,
+            hop.hop_dest_seq,
+            hop.hop_age,
+            hop.hop_count
         FROM trace
         LEFT JOIN hop ON trace.uuid = hop.trace_uuid
         LEFT JOIN device_names ON hop.hop_mac_address = device_names.mac_address

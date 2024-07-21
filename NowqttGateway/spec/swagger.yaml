@@ -181,10 +181,16 @@ components:
             type: integer
           hop_mac_address:
             type: string
-          hop_rssi:
-            type: integer
           name:
             type: string
+          hop_rssi:
+            type: integer
+          hop_dest_seq:
+            type: integer
+          hop_age:
+            type: integer
+          hop_count:
+            type: integer
 
     Devices_Names:
       type: object

@@ -47,8 +47,11 @@ def fetch_traces(device_mac_address, last):
             hop_data = {
                 "hop_counter": row[3],
                 "hop_mac_address": row[4],
+                "name": row[6],
                 "hop_rssi": row[5],
-                "name": row[6]
+                "hop_dest_seq": row[7],
+                "hop_age": row[8],
+                "hop_count": row[9]
             }
             traces[trace_uuid]["hops"].append(hop_data)
 
