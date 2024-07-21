@@ -1,7 +1,7 @@
 import json
 import logging
 
-from database import find_with_filters, find_all, find_devices, find_device_names, update_devices_names, \
+from database import find_with_filters, find_devices, find_device_names, update_devices_names, \
     insert_devices_names, remove_devices_names
 
 
@@ -30,10 +30,7 @@ def fetch_traces(device_mac_address, last):
     if device_mac_address is not None:
         filters.append("trace.dest_mac_address like '" + device_mac_address + "'")
 
-    if len(filters) > 0 or last is not None:
-        rows = find_with_filters(filters, last)
-    else:
-        rows = find_all()
+    rows = find_with_filters(filters, last)
 
     # Convert data to a list of dictionaries
     traces = {}

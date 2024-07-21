@@ -1,54 +1,44 @@
 import logging
 
 import global_vars
+from .db_migration import db_migration_0, db_migration_1
+
+
+def insert_migration(migrations_id):
+    query = f"""
+        INSERT INTO migration (id)
+        VALUES ('{migrations_id}')
+    """
+
+    cursor = global_vars.sql_lite_connection.cursor()
+    cursor.execute(query)
 
 def create_tables():
-    with global_vars.sql_lite_connection:
-        global_vars.sql_lite_connection.execute('''
-            CREATE TABLE IF NOT EXISTS trace (
-                uuid TEXT PRIMARY KEY,
-                dest_mac_address TEXT NOT NULL,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-
-        global_vars.sql_lite_connection.execute('''
-            CREATE TABLE IF NOT EXISTS hop (
-                trace_uuid TEXT,
-                hop_counter INTEGER NOT NULL,
-                hop_mac_address TEXT NOT NULL,
-                hop_rssi INTEGER NOT NULL,
-                PRIMARY KEY (trace_uuid, hop_counter),
-                FOREIGN KEY (trace_uuid) REFERENCES trace (uuid)
-            )
-        ''')
-
-        global_vars.sql_lite_connection.execute('''
-            CREATE TABLE IF NOT EXISTS device_names (
-                mac_address TEXT PRIMARY KEY,
-                name TEXT NOT NULL
-            )
-        ''')
-
-        global_vars.sql_lite_connection.execute('''
-            CREATE TABLE IF NOT EXISTS device_activity (
-                mac_address TEXT,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                activity INTEGER,
-                PRIMARY KEY (mac_address, timestamp)
-            )
-        ''')
-
-        global_vars.sql_lite_connection.execute(
-            'CREATE INDEX IF NOT EXISTS dest_mac_address_index ON trace(dest_mac_address);'
+    global_vars.sql_lite_connection.execute('''
+        CREATE TABLE IF NOT EXISTS migration (
+            id INTEGER PRIMARY KEY,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
+    ''')
 
-        global_vars.sql_lite_connection.execute(
-            'CREATE INDEX IF NOT EXISTS timestamp_index ON trace(timestamp);'
-        )
+    cursor = global_vars.sql_lite_connection.cursor()
+    cursor.execute("SELECT id FROM migration ORDER BY id DESC LIMIT 1;")
+    migration_rows = cursor.fetchall()
 
-        global_vars.sql_lite_connection.execute(
-            'CREATE INDEX IF NOT EXISTS trace_uuid_index ON hop(trace_uuid);'
-        )
+    skip_migrations = 0
+    if len(migration_rows) > 0:
+        skip_migrations = migration_rows[0][0]
 
-        logging.info("DB configured")
+    migrations = [
+        db_migration_0,
+        db_migration_1
+    ]
+
+    for i in range(len(migrations)):
+        if i <= skip_migrations:
+            continue
+        else:
+            migrations[i]()
+            insert_migration(i)
+
+    logging.info("DB configured")

@@ -33,6 +33,10 @@ def process_serial_log_message(message):
         log_file.write(datetime.now().strftime("%H:%M:%S %m.%d.%Y") + "\t" + message + "\n")
 
 
+def get_hex_string_from_array(hex_string, start, length):
+    return hex_string[start: start+length]
+
+
 def handle_trace_route_message():
     message_length = int.from_bytes(global_vars.serial.read(1), "little")
     if message_length == 0:
@@ -48,13 +52,36 @@ def handle_trace_route_message():
     trace_uuid = str(uuid.uuid4())
     insert_trace_table(serial_header.hex(), trace_uuid)
 
-    hop_count = int((message_length-6) / 7)
+    bytes_per_hop = 6 + 1 + 4 + 1 + 1
+    byte_chars_per_hop = bytes_per_hop +2
+    hop_count = int((message_length-6) / bytes_per_hop) # 6 Byte mac, 1 Byte rssi, 4 Byte dest sequ, 1 Byte age, 1 Byte hop-count
     for x in range(hop_count):
-        hop_mac_address = serial_message_string[x*14:(x*14)+12]
-        hop_rssi_raw = serial_message_string[(x*14)+12:(x*14)+14]
+        current_start_byte = x*byte_chars_per_hop
+        start_byte_in_current_hop = 0
+
+        hop_mac_address = get_hex_string_from_array(serial_message_string, current_start_byte + start_byte_in_current_hop, 12)
+
+        start_byte_in_current_hop += 12
+
+        hop_rssi_raw = get_hex_string_from_array(serial_message_string, current_start_byte + start_byte_in_current_hop, 2)
         hop_rssi = int(hop_rssi_raw, 16) - 256
 
-        insert_hop_table(trace_uuid, x, hop_mac_address, hop_rssi)
+        start_byte_in_current_hop += 2
+
+        hop_dest_seq_raw = get_hex_string_from_array(serial_message_string, current_start_byte + start_byte_in_current_hop, 8)
+        hop_dest_seq = int(hop_dest_seq_raw, 16)
+
+        start_byte_in_current_hop += 8
+
+        hop_age_raw = get_hex_string_from_array(serial_message_string, current_start_byte + start_byte_in_current_hop, 2)
+        hop_age = int(hop_age_raw, 16)
+
+        start_byte_in_current_hop += 2
+
+        hop_count_message_raw = get_hex_string_from_array(serial_message_string, current_start_byte + start_byte_in_current_hop, 2)
+        hop_count_message = int(hop_count_message_raw, 16)
+
+        insert_hop_table(trace_uuid, x, hop_mac_address, hop_rssi, hop_dest_seq, hop_age, hop_count_message)
 
 
 class SerialTask:

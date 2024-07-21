@@ -47,14 +47,6 @@ def handle_filters(filters):
 
     return query
 
-def find_all():
-    query = find_qb()
-    query += " ORDER BY trace.timestamp DESC"
-
-    cursor = global_vars.sql_lite_connection.cursor()
-    cursor.execute(query)
-    return cursor.fetchall()
-
 def find_trace_with_filters(filters, last):
     query = find_trace_qb()
     query += handle_filters(filters)
@@ -154,14 +146,18 @@ def insert_trace_table(dest_mac_address, trace_uuid):
     with global_vars.sql_lite_connection:
         global_vars.sql_lite_connection.execute(
             "INSERT INTO trace (uuid, dest_mac_address) VALUES (?, ?)",
-            (trace_uuid, dest_mac_address, )
+            (trace_uuid, dest_mac_address)
         )
 
-def insert_hop_table(trace_uuid, hop_counter, hop_mac_address, hop_rssi):
+def insert_hop_table(trace_uuid, hop_counter, hop_mac_address, hop_rssi, hop_dest_seq, hop_age, hop_count):
     with global_vars.sql_lite_connection:
-        global_vars.sql_lite_connection.execute(
-            "INSERT INTO hop (trace_uuid, hop_counter, hop_mac_address, hop_rssi) VALUES (?, ?, ?, ?)",
-            (trace_uuid, hop_counter, hop_mac_address, hop_rssi, )
+        query = f"""
+            INSERT INTO hop
+            (trace_uuid, hop_counter, hop_mac_address, hop_rssi, hop_dest_seq, hop_age, hop_count)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """
+        global_vars.sql_lite_connection.execute(query,
+            (trace_uuid, hop_counter, hop_mac_address, hop_rssi, hop_dest_seq, hop_age, hop_count)
         )
 
 def insert_device_activity_table(mac_address, activity):
