@@ -53,10 +53,10 @@ def handle_trace_route_message():
     insert_trace_table(serial_header.hex(), trace_uuid)
 
     bytes_per_hop = 6 + 1 + 4 + 1 + 1
-    byte_chars_per_hop = bytes_per_hop +2
+    byte_chars_per_hop = bytes_per_hop * 2
     hop_count = int((message_length-6) / bytes_per_hop) # 6 Byte mac, 1 Byte rssi, 4 Byte dest sequ, 1 Byte age, 1 Byte hop-count
     for x in range(hop_count):
-        current_start_byte = x*byte_chars_per_hop
+        current_start_byte = x * byte_chars_per_hop
         start_byte_in_current_hop = 0
 
         hop_mac_address = get_hex_string_from_array(serial_message_string, current_start_byte + start_byte_in_current_hop, 12)
