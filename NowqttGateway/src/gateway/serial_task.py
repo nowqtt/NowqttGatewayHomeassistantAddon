@@ -69,7 +69,8 @@ def handle_trace_route_message():
         start_byte_in_current_hop += 2
 
         hop_dest_seq_raw = get_hex_string_from_array(serial_message_string, current_start_byte + start_byte_in_current_hop, 8)
-        hop_dest_seq = int(hop_dest_seq_raw, 16)
+        hop_dest_seq_bytes = bytes.fromhex(hop_dest_seq_raw)
+        hop_dest_seq = int.from_bytes(hop_dest_seq_bytes, byteorder='little')
 
         start_byte_in_current_hop += 8
 
