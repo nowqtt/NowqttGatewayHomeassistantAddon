@@ -25,7 +25,7 @@ class MQTTSensorAvailableTask:
             if device.last_seen_timestamp + device.seconds_until_timeout < int(time.time()):
                 devices_to_disconnect_mqtt.append(device_mac_address)
 
-                device.rssi_entity.mqtt_publish_availability("offline")
+                device.hop_count_entity.mqtt_publish_availability("offline")
 
                 insert_device_activity_table(device_mac_address, 0)
 
