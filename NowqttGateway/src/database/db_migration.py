@@ -60,3 +60,8 @@ def db_migration_1():
     global_vars.sql_lite_connection.execute('''
         ALTER TABLE hop ADD COLUMN hop_count INTEGER NOT NULL;
     ''')
+
+def db_migration_2():
+    global_vars.sql_lite_connection.execute('''
+            ALTER TABLE hop RENAME COLUMN hop_age TO route_age;
+        ''')

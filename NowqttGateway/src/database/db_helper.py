@@ -13,7 +13,7 @@ def find_qb():
             hop.hop_rssi,
             device_names.name,
             hop.hop_dest_seq,
-            hop.hop_age,
+            hop.route_age,
             hop.hop_count
         FROM trace
         LEFT JOIN hop ON trace.uuid = hop.trace_uuid
@@ -152,15 +152,15 @@ def insert_trace_table(dest_mac_address, trace_uuid):
             (trace_uuid, dest_mac_address)
         )
 
-def insert_hop_table(trace_uuid, hop_counter, hop_mac_address, hop_rssi, hop_dest_seq, hop_age, hop_count):
+def insert_hop_table(trace_uuid, hop_counter, hop_mac_address, hop_rssi, hop_dest_seq, route_age, hop_count):
     with global_vars.sql_lite_connection:
         query = f"""
             INSERT INTO hop
-            (trace_uuid, hop_counter, hop_mac_address, hop_rssi, hop_dest_seq, hop_age, hop_count)
+            (trace_uuid, hop_counter, hop_mac_address, hop_rssi, hop_dest_seq, route_age, hop_count)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """
         global_vars.sql_lite_connection.execute(query,
-            (trace_uuid, hop_counter, hop_mac_address, hop_rssi, hop_dest_seq, hop_age, hop_count)
+            (trace_uuid, hop_counter, hop_mac_address, hop_rssi, hop_dest_seq, route_age, hop_count)
         )
 
 def insert_device_activity_table(mac_address, activity):

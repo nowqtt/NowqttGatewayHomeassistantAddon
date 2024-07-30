@@ -74,15 +74,15 @@ def handle_trace_route_message():
 
         start_byte_in_current_hop += 8
 
-        hop_age_raw = get_hex_string_from_array(serial_message_string, current_start_byte + start_byte_in_current_hop, 2)
-        hop_age = int(hop_age_raw, 16)
+        route_age_raw = get_hex_string_from_array(serial_message_string, current_start_byte + start_byte_in_current_hop, 2)
+        route_age = int(route_age_raw, 16)
 
         start_byte_in_current_hop += 2
 
         hop_count_message_raw = get_hex_string_from_array(serial_message_string, current_start_byte + start_byte_in_current_hop, 2)
         hop_count_message = int(hop_count_message_raw, 16)
 
-        insert_hop_table(trace_uuid, x, hop_mac_address, hop_rssi, hop_dest_seq, hop_age, hop_count_message)
+        insert_hop_table(trace_uuid, x, hop_mac_address, hop_rssi, hop_dest_seq, route_age, hop_count_message)
 
 
 class SerialTask:

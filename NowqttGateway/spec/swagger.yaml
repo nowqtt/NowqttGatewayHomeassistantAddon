@@ -187,7 +187,7 @@ components:
             type: integer
           hop_dest_seq:
             type: integer
-          hop_age:
+          route_age:
             type: integer
           hop_count:
             type: integer

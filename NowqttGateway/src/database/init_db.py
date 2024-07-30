@@ -1,7 +1,7 @@
 import logging
 
 import global_vars
-from .db_migration import db_migration_0, db_migration_1
+from .db_migration import db_migration_0, db_migration_1, db_migration_2
 
 
 def insert_migration(migrations_id):
@@ -32,7 +32,8 @@ def create_tables():
 
     migrations = [
         db_migration_0,
-        db_migration_1
+        db_migration_1,
+        db_migration_2
     ]
 
     for i in range(len(migrations)):
