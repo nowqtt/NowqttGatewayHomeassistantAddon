@@ -1,6 +1,8 @@
 import time
 from json import JSONDecodeError
 
+import uuid
+
 import global_vars
 
 import json
@@ -11,19 +13,28 @@ from datetime import datetime
 
 from threading import Thread
 
-import mqtt_sensor_available_task
-from formatter import (
+from database import insert_hop_table, insert_trace_table
+from . import mqtt_sensor_available_task
+
+from . import trace_route_task
+
+from .formatter import (
     expand_sensor_config,
-    format_mqtt_rssi_config_topic,
+    format_mqtt_hop_count_config_topic,
     expand_header_message)
-from nowqtt_device_tree import NowqttDevices
+from .nowqtt_device_tree import NowqttDevices
+from .serial_send_helper import send_serial_message
 
 
 def process_serial_log_message(message):
     logging.info(message)
 
-    with open("logfile.txt", "a") as log_file:
+    with open("../logfile.txt", "a") as log_file:
         log_file.write(datetime.now().strftime("%H:%M:%S %m.%d.%Y") + "\t" + message + "\n")
+
+
+def get_hex_string_from_array(hex_string, start, length):
+    return hex_string[start: start+length]
 
 
 class SerialTask:
@@ -32,18 +43,71 @@ class SerialTask:
 
         self.config_message_request_cooldown = {}
 
+    def handle_trace_route_message(self):
+        message_length = int.from_bytes(global_vars.serial.read(1), "little")
+        if message_length == 0:
+            raise TimeoutError("Partner Timeout")
+
+        serial_header = global_vars.serial.read(6)
+        logging.debug("Trace Destination: %s", serial_header.hex())
+
+        serial_message = global_vars.serial.read(message_length - 6)
+        serial_message_string = ''.join('{:02x}'.format(x) for x in serial_message)
+        logging.debug("Trace Message: %s", serial_message_string)
+
+        trace_uuid = str(uuid.uuid4())
+        insert_trace_table(serial_header.hex(), trace_uuid)
+
+        bytes_per_hop = 6 + 1 + 4 + 1 + 1
+        byte_chars_per_hop = bytes_per_hop * 2
+        hop_count = int((message_length - 6) / bytes_per_hop)  # 6 Byte mac, 1 Byte rssi, 4 Byte dest sequ, 1 Byte age, 1 Byte hop-count
+        for x in range(hop_count):
+            current_start_byte = x * byte_chars_per_hop
+            start_byte_in_current_hop = 0
+
+            hop_mac_address = get_hex_string_from_array(serial_message_string,
+                                                        current_start_byte + start_byte_in_current_hop, 12)
+
+            start_byte_in_current_hop += 12
+
+            hop_rssi_raw = get_hex_string_from_array(serial_message_string,
+                                                     current_start_byte + start_byte_in_current_hop, 2)
+            hop_rssi = int(hop_rssi_raw, 16) - 256
+
+            start_byte_in_current_hop += 2
+
+            hop_dest_seq_raw = get_hex_string_from_array(serial_message_string,
+                                                         current_start_byte + start_byte_in_current_hop, 8)
+            hop_dest_seq_bytes = bytes.fromhex(hop_dest_seq_raw)
+            hop_dest_seq = int.from_bytes(hop_dest_seq_bytes, byteorder='little')
+
+            start_byte_in_current_hop += 8
+
+            route_age_raw = get_hex_string_from_array(serial_message_string,
+                                                      current_start_byte + start_byte_in_current_hop, 2)
+            route_age = int(route_age_raw, 16)
+
+            start_byte_in_current_hop += 2
+
+            hop_count_message_raw = get_hex_string_from_array(serial_message_string,
+                                                              current_start_byte + start_byte_in_current_hop, 2)
+            hop_count_message = int(hop_count_message_raw, 16)
+
+            insert_hop_table(trace_uuid, x, hop_mac_address, hop_rssi, hop_dest_seq, route_age, hop_count_message)
+
+        # Publish hop count
+        self.nowqtt_devices.devices[serial_header.hex()].hop_count_entity.mqtt_publish(int(hop_count/2))
+
     def request_config_message(self, header):
         self.config_message_request_cooldown[header["device_mac_address"]] = time.time()
 
-        message = ("FF13AB00" +
-                   header["device_mac_address"] +
-                   "{:02d}".format(global_vars.SerialCommands.RESET.value) +
-                   "00")
-
-        reset_message = bytearray.fromhex(message)
-        reset_message[4 - 1] = len(reset_message) - 4
-
-        global_vars.serial.write(reset_message)
+        send_serial_message(
+            "01",
+            header["device_mac_address"],
+            global_vars.SerialCommands.RESET.value,
+            0,
+            None
+        )
 
         logging.debug("request config on unknown state message. Header: %s\n", header["device_mac_address"])
 
@@ -80,8 +144,8 @@ class SerialTask:
                 if global_vars.platforms[mqtt_topic.split("/")[1]]['command']:
                     mqtt_subscriptions.append(mqtt_config["command_topic"])
 
-                # Prepare RSSI MQTT
-                mqtt_config_topic_rssi, mqtt_config_message_rssi = format_mqtt_rssi_config_topic(
+                # Prepare hop count MQTT
+                mqtt_config_topic_hop_count, mqtt_config_message_hop_count = format_mqtt_hop_count_config_topic(
                     message,
                     mqtt_config['availability_topic'],
                     header
@@ -91,15 +155,17 @@ class SerialTask:
                                                 mqtt_config,
                                                 mqtt_subscriptions,
                                                 mqtt_topic + "onfig",
-                                                mqtt_config_message_rssi,
-                                                mqtt_config_topic_rssi,
+                                                mqtt_config_message_hop_count,
+                                                mqtt_config_topic_hop_count,
                                                 seconds_until_timeout)
         except JSONDecodeError:
             logging.debug('JSON decoder Error')
 
+    #TODO delete heartbeat at some point
     def process_heartbeat(self, header, message):
         if self.nowqtt_devices.has_device(header["device_mac_address"]):
-            self.nowqtt_devices.devices[header["device_mac_address"]].rssi_entity.mqtt_publish(message)
+            return
+            # self.nowqtt_devices.devices[header["device_mac_address"]].hop_count_entity.mqtt_publish(message)
         else:
             self.request_config_message(header)
 
@@ -140,6 +206,13 @@ class SerialTask:
         t.daemon = True
         t.start()
 
+        # Trace route
+        t = Thread(target=trace_route_task.TraceRouteTask(
+            self.nowqtt_devices
+        ).run())
+        t.daemon = True
+        t.start()
+
         # clear the serial input buffer
         global_vars.serial.reset_input_buffer()
 
@@ -158,15 +231,19 @@ class SerialTask:
                 else:
                     counter = 0
 
-            message_length = int.from_bytes(global_vars.serial.read(1), "little")
-            if message_length == 0:
-                raise TimeoutError("Partner Timeout")
+            service_byte = global_vars.serial.read(1)
+            if service_byte.hex() == "ff":
+                self.handle_trace_route_message()
+            else:
+                message_length = int.from_bytes(global_vars.serial.read(1), "little")
+                if message_length == 0:
+                    raise TimeoutError("Partner Timeout")
 
-            serial_header = global_vars.serial.read(8)
-            logging.debug("Header: %s", serial_header.hex())
+                serial_header = global_vars.serial.read(8)
+                logging.debug("Header: %s", serial_header.hex())
 
-            serial_message = global_vars.serial.read(message_length-8).decode("utf-8", errors='ignore').strip()
-            logging.debug("Message: %s", serial_message)
+                serial_message = global_vars.serial.read(message_length-8).decode("utf-8", errors='ignore').strip()
+                logging.debug("Message: %s", serial_message)
 
-            header = expand_header_message(serial_header)
-            self.process_serial_message(serial_message, header)
+                header = expand_header_message(serial_header)
+                self.process_serial_message(serial_message, header)

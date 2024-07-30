@@ -38,15 +38,15 @@ def expand_header_message(raw_header):
     }
 
 
-def format_mqtt_rssi_config_topic(message, availability_topic, header):
+def format_mqtt_hop_count_config_topic(message, availability_topic, header):
     mqtt_config = json.loads(message.split("|")[1])
 
     mqtt_topic = "homeassistant" + message.split("|")[0][1:] + "onfig"
 
     mqtt_topic_splitted = mqtt_topic.split("/")
     mqtt_topic_splitted[1] = "sensor"
-    mqtt_topic_splitted[2] = "rssi"
-    mqtt_topic_splitted[3] = mqtt_config["dev"]["ids"] + "_rssi"
+    mqtt_topic_splitted[2] = "hopCount"
+    mqtt_topic_splitted[3] = mqtt_config["dev"]["ids"] + "_hopCount"
 
     mqtt_topic = "/".join(mqtt_topic_splitted).replace(" ", "_")
 
@@ -60,13 +60,12 @@ def format_mqtt_rssi_config_topic(message, availability_topic, header):
     for key in keys_to_delete:
         del mqtt_config[key]
 
-    mqtt_config['name'] = mqtt_config['dev']['name'] + " RSSI"
+    mqtt_config['name'] = mqtt_config['dev']['name'] + " Hop Count"
     mqtt_config['unique_id'] = mqtt_client_name
     mqtt_config['object_id'] = mqtt_client_name
     mqtt_config['device_class'] = 'signal_strength'
     mqtt_config['state_class'] = 'measurement'
     mqtt_config['availability_topic'] = availability_topic
-    mqtt_config['unit_of_measurement'] = 'dBm'
     mqtt_config['state_topic'] = mqtt_topic[:len(mqtt_topic) - 6] + "state"
 
     if 'sut' in mqtt_config['dev']:
@@ -75,6 +74,6 @@ def format_mqtt_rssi_config_topic(message, availability_topic, header):
     mqtt_config['dev']['manufacturer'] = "nowqtt"
     mqtt_config['dev']['model'] = header["device_mac_address"]
 
-    logging.debug("MQTT RSSI Config: %s", mqtt_config)
+    logging.debug("MQTT hop count config: %s", mqtt_config)
 
     return mqtt_topic, mqtt_config

@@ -2,13 +2,14 @@ FROM python:3.8
 
 WORKDIR /app
 
-COPY src /app/src
-COPY requirements.txt /app/requirements.txt
-COPY run.sh /app/run.sh
-
-RUN chmod a+x /app/run.sh
+COPY requirements.txt ./
 
 RUN pip3 install --no-cache-dir --upgrade pip
 RUN pip3 install --trusted-host pypi.python.org -r requirements.txt
 
-CMD [ "/app/run.sh" ]
+COPY src src
+COPY run.sh ./
+
+RUN chmod a+x run.sh
+
+CMD [ "python3", "/app/src/main.py" ]
