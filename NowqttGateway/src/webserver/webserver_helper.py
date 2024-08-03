@@ -42,6 +42,7 @@ def fetch_traces(device_mac_address, last):
     traces = {}
     for row in rows:
         trace_uuid = row[0]
+        #Fill root object
         if trace_uuid not in traces:
             traces[trace_uuid] = {
                 "uuid": row[0],
@@ -49,6 +50,12 @@ def fetch_traces(device_mac_address, last):
                 "timestamp": row[2],
                 "hops": []
             }
+
+        #Fill name to root object
+        if traces[trace_uuid]['dest_mac_address'] == row[4]:
+            traces[trace_uuid]['name'] = row[6]
+
+        #Fill hop object
         if row[3] is not None:  # If hop data exists
             hop_data = {
                 "hop_counter": row[3],

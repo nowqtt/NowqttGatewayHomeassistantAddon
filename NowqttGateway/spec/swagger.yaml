@@ -167,6 +167,8 @@ components:
           format: uuid
         dest_mac_address:
           type: string
+        name:
+          type: string
         timestamp:
           type: string
         hops:
