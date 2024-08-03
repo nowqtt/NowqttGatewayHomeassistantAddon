@@ -33,7 +33,8 @@ def find_device_names_qb():
     return """
         SELECT
             device_names.name, 
-            device_names.mac_address
+            device_names.mac_address,
+            device_names.manual_input
         FROM device_names
     """
 
@@ -117,20 +118,20 @@ def find_device_names(mac_address):
     cursor.execute(query)
     return cursor.fetchall()
 
-def update_devices_names(mac_address, name):
+def update_devices_names(mac_address, name, manual_input):
     query = f"""
         UPDATE device_names
-        SET name = '{name}'
+        SET name = '{name}', manual_input = {manual_input}
         WHERE device_names.mac_address like '{mac_address}'
     """
 
     cursor = global_vars.sql_lite_connection.cursor()
     cursor.execute(query)
 
-def insert_devices_names(mac_address, name):
+def insert_devices_names(mac_address, name, manual_input):
     query = f"""
-        INSERT INTO device_names (name, mac_address)
-        VALUES ('{name}', '{mac_address}')
+        INSERT INTO device_names (name, mac_address, manual_input)
+        VALUES ('{name}', '{mac_address}', {manual_input})
     """
 
     cursor = global_vars.sql_lite_connection.cursor()

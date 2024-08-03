@@ -51,17 +51,25 @@ def db_migration_0():
 
 
 def db_migration_1():
-    global_vars.sql_lite_connection.execute('''
-        ALTER TABLE hop ADD COLUMN hop_dest_seq INTEGER NOT NULL;
-    ''')
-    global_vars.sql_lite_connection.execute('''
-        ALTER TABLE hop ADD COLUMN hop_age INTEGER NOT NULL;
-    ''')
-    global_vars.sql_lite_connection.execute('''
-        ALTER TABLE hop ADD COLUMN hop_count INTEGER NOT NULL;
-    ''')
+    with global_vars.sql_lite_connection:
+        global_vars.sql_lite_connection.execute('''
+            ALTER TABLE hop ADD COLUMN hop_dest_seq INTEGER NOT NULL;
+        ''')
+        global_vars.sql_lite_connection.execute('''
+            ALTER TABLE hop ADD COLUMN hop_age INTEGER NOT NULL;
+        ''')
+        global_vars.sql_lite_connection.execute('''
+            ALTER TABLE hop ADD COLUMN hop_count INTEGER NOT NULL;
+        ''')
 
 def db_migration_2():
-    global_vars.sql_lite_connection.execute('''
+    with global_vars.sql_lite_connection:
+        global_vars.sql_lite_connection.execute('''
             ALTER TABLE hop RENAME COLUMN hop_age TO route_age;
+        ''')
+
+def db_migration_3():
+    with global_vars.sql_lite_connection:
+        global_vars.sql_lite_connection.execute('''
+            ALTER TABLE device_names ADD COLUMN manual_input INTEGER NOT NULL DEFAULT 0;
         ''')

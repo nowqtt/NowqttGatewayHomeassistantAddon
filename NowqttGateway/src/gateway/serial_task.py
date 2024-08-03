@@ -13,7 +13,13 @@ from datetime import datetime
 
 from threading import Thread
 
-from database import insert_hop_table, insert_trace_table
+from database import (
+    insert_hop_table,
+    insert_trace_table,
+    find_device_names,
+    update_devices_names,
+    insert_devices_names
+)
 from . import mqtt_sensor_available_task
 
 from . import trace_route_task
@@ -35,6 +41,15 @@ def process_serial_log_message(message):
 
 def get_hex_string_from_array(hex_string, start, length):
     return hex_string[start: start+length]
+
+def write_device_name_to_db(mac_address, device_name):
+    rows = find_device_names(mac_address)
+
+    if len(rows) != 0:
+        if rows[0][2] == 0:
+            update_devices_names(mac_address, device_name, 0)
+    else:
+        insert_devices_names(mac_address, device_name, 0)
 
 
 class SerialTask:
@@ -146,6 +161,8 @@ class SerialTask:
                 mqtt_topic,
                 header
             )
+
+            write_device_name_to_db(header['device_mac_address'], mqtt_config['dev']['name'])
 
             if not self.nowqtt_devices.has_device_and_entity(header["device_mac_address"], header["entity_id"]):
                 mqtt_subscriptions = ["homeassistant/status"]
