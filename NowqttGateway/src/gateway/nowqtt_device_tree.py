@@ -62,7 +62,12 @@ class NowqttDevices:
             while not mqtt_client_hop_count.is_connected():
                 time.sleep(0.1)
 
-            new_hop_count_entity = Entity(mqtt_config_message_hop_count["state_topic"], mqtt_client_hop_count, mqtt_config['availability_topic'])
+            new_hop_count_entity = Entity(
+                mqtt_config_message_hop_count["state_topic"],
+                mqtt_client_hop_count,
+                mqtt_config['availability_topic'],
+                mqtt_config_topic
+            )
             device = Device(seconds_until_timeout, new_hop_count_entity)
             device.entities[0] = new_hop_count_entity
 
@@ -89,7 +94,12 @@ class NowqttDevices:
             while not new_client.is_connected():
                 time.sleep(0.1)
 
-            entity = Entity(mqtt_config["state_topic"], new_client, mqtt_config['availability_topic'])
+            entity = Entity(
+                mqtt_config["state_topic"],
+                new_client,
+                mqtt_config['availability_topic'],
+                mqtt_config_topic
+            )
             device.entities[header["entity_id"]] = entity
 
         device.set_last_seen_timestamp_to_now()
@@ -130,14 +140,18 @@ class Device:
 
 
 class Entity:
-    def __init__(self, mqtt_state_topic, mqtt_client, mqtt_availability_topic):
+    def __init__(self, mqtt_state_topic, mqtt_client, mqtt_availability_topic, mqtt_config_topic):
         self.mqtt_state_topic = mqtt_state_topic
         self.mqtt_client = mqtt_client
         self.mqtt_availability_topic = mqtt_availability_topic
+        self.mqtt_config_topic = mqtt_config_topic
 
     def mqtt_publish(self, message):
         self.mqtt_client.publish(self.mqtt_state_topic, message)
         self.mqtt_client.set_last_known_state(message)
+
+    def mqtt_publish_config_message(self, mqtt_config_message):
+        self.mqtt_client.publish(self.mqtt_config_topic, json.dumps(mqtt_config_message))
 
     def mqtt_publish_availability(self, state):
         self.mqtt_client.publish(self.mqtt_availability_topic, state, 0, True)

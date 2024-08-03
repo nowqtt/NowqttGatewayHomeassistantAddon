@@ -185,6 +185,10 @@ class SerialTask:
                                                 mqtt_config_message_hop_count,
                                                 mqtt_config_topic_hop_count,
                                                 seconds_until_timeout)
+
+            # Publish potential new config topic
+            else:
+                self.nowqtt_devices.devices[header["device_mac_address"]].entities[header["entity_id"]].mqtt_publish_config_message(mqtt_config)
         except JSONDecodeError:
             logging.debug('JSON decoder Error')
 
