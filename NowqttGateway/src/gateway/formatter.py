@@ -63,8 +63,6 @@ def format_mqtt_hop_count_config_topic(message, availability_topic, header):
     mqtt_config['name'] = mqtt_config['dev']['name'] + " Hop Count"
     mqtt_config['unique_id'] = mqtt_client_name
     mqtt_config['object_id'] = mqtt_client_name
-    mqtt_config['device_class'] = 'signal_strength'
-    mqtt_config['state_class'] = 'measurement'
     mqtt_config['availability_topic'] = availability_topic
     mqtt_config['state_topic'] = mqtt_topic[:len(mqtt_topic) - 6] + "state"
 

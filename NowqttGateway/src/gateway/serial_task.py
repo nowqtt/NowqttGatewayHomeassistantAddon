@@ -52,6 +52,25 @@ def write_device_name_to_db(mac_address, device_name):
         insert_devices_names(mac_address, device_name, 0)
 
 
+def get_hop_count_to_and_from(mac_address, trace_message, byte_chars_per_hop):
+    counter = 0
+    count_to = 0
+    count_from = -1 #GW is in the trace but not a hop -> start from -1
+
+    reached_destination = False
+    while counter * byte_chars_per_hop < len(trace_message):
+        if not reached_destination:
+            if trace_message[counter * byte_chars_per_hop: counter * byte_chars_per_hop + 12] != mac_address:
+                count_to += 1
+            else:
+                reached_destination = True
+        else:
+            count_from += 1
+
+        counter += 1
+
+    return f'{count_to}/{count_from}'
+
 class SerialTask:
     def __init__(self):
         self.nowqtt_devices = NowqttDevices()
@@ -67,44 +86,44 @@ class SerialTask:
         logging.debug("Trace Destination: %s", serial_header.hex())
 
         serial_message = global_vars.serial.read(message_length - 6)
-        serial_message_string = ''.join('{:02x}'.format(x) for x in serial_message)
-        logging.debug("Trace Message: %s", serial_message_string)
+        trace_message_string = ''.join('{:02x}'.format(x) for x in serial_message)
+        logging.debug("Trace Message: %s", trace_message_string)
 
         trace_uuid = str(uuid.uuid4())
         insert_trace_table(serial_header.hex(), trace_uuid)
 
-        bytes_per_hop = 6 + 1 + 4 + 1 + 1
+        bytes_per_hop = 6 + 1 + 4 + 1 + 1  # 6 Byte mac, 1 Byte rssi, 4 Byte dest sequ, 1 Byte age, 1 Byte hop-count
         byte_chars_per_hop = bytes_per_hop * 2
-        hop_count = int((message_length - 6) / bytes_per_hop)  # 6 Byte mac, 1 Byte rssi, 4 Byte dest sequ, 1 Byte age, 1 Byte hop-count
+        hop_count = int((message_length - 6) / bytes_per_hop)
         for x in range(hop_count):
             current_start_byte = x * byte_chars_per_hop
             start_byte_in_current_hop = 0
 
-            hop_mac_address = get_hex_string_from_array(serial_message_string,
+            hop_mac_address = get_hex_string_from_array(trace_message_string,
                                                         current_start_byte + start_byte_in_current_hop, 12)
 
             start_byte_in_current_hop += 12
 
-            hop_rssi_raw = get_hex_string_from_array(serial_message_string,
+            hop_rssi_raw = get_hex_string_from_array(trace_message_string,
                                                      current_start_byte + start_byte_in_current_hop, 2)
             hop_rssi = int(hop_rssi_raw, 16) - 256
 
             start_byte_in_current_hop += 2
 
-            hop_dest_seq_raw = get_hex_string_from_array(serial_message_string,
+            hop_dest_seq_raw = get_hex_string_from_array(trace_message_string,
                                                          current_start_byte + start_byte_in_current_hop, 8)
             hop_dest_seq_bytes = bytes.fromhex(hop_dest_seq_raw)
             hop_dest_seq = int.from_bytes(hop_dest_seq_bytes, byteorder='little')
 
             start_byte_in_current_hop += 8
 
-            route_age_raw = get_hex_string_from_array(serial_message_string,
+            route_age_raw = get_hex_string_from_array(trace_message_string,
                                                       current_start_byte + start_byte_in_current_hop, 2)
             route_age = int(route_age_raw, 16)
 
             start_byte_in_current_hop += 2
 
-            hop_count_message_raw = get_hex_string_from_array(serial_message_string,
+            hop_count_message_raw = get_hex_string_from_array(trace_message_string,
                                                               current_start_byte + start_byte_in_current_hop, 2)
             hop_count_message = int(hop_count_message_raw, 16)
 
@@ -113,15 +132,19 @@ class SerialTask:
         # Add GW (last hop) to the list
         current_start_byte = hop_count * byte_chars_per_hop
 
-        hop_mac_address = get_hex_string_from_array(serial_message_string, current_start_byte, 12)
+        hop_mac_address = get_hex_string_from_array(trace_message_string, current_start_byte, 12)
 
-        hop_rssi_raw = get_hex_string_from_array(serial_message_string, current_start_byte + 12, 2)
+        hop_rssi_raw = get_hex_string_from_array(trace_message_string, current_start_byte + 12, 2)
         hop_rssi = int(hop_rssi_raw, 16) - 256
 
         insert_hop_table(trace_uuid, hop_count, hop_mac_address, hop_rssi, 0, 0, 0)
 
         # Publish hop count
-        self.nowqtt_devices.devices[serial_header.hex()].hop_count_entity.mqtt_publish(int(hop_count/2))
+        self.nowqtt_devices.devices[serial_header.hex()].hop_count_entity.mqtt_publish(get_hop_count_to_and_from(
+            serial_header.hex(),
+            trace_message_string,
+            byte_chars_per_hop
+        ))
 
     def request_config_message(self, header):
         self.config_message_request_cooldown[header["device_mac_address"]] = time.time()
