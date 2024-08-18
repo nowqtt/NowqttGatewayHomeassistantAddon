@@ -129,16 +129,6 @@ class SerialTask:
 
             insert_hop_table(trace_uuid, x, hop_mac_address, hop_rssi, hop_dest_seq, route_age, hop_count_message)
 
-        # Add GW (last hop) to the list
-        current_start_byte = hop_count * byte_chars_per_hop
-
-        hop_mac_address = get_hex_string_from_array(trace_message_string, current_start_byte, 12)
-
-        hop_rssi_raw = get_hex_string_from_array(trace_message_string, current_start_byte + 12, 2)
-        hop_rssi = int(hop_rssi_raw, 16) - 256
-
-        insert_hop_table(trace_uuid, hop_count, hop_mac_address, hop_rssi, 0, 0, 0)
-
         # Publish hop count
         self.nowqtt_devices.devices[serial_header.hex()].hop_count_entity.mqtt_publish(get_hop_count_to_and_from(
             serial_header.hex(),
