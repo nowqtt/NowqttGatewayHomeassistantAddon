@@ -71,6 +71,20 @@ def get_hop_count_to_and_from(mac_address, trace_message, byte_chars_per_hop):
 
     return f'{count_to}/{count_from}'
 
+
+def handle_ota_message():
+    message_length = int.from_bytes(global_vars.serial.read(1), "little")
+    if message_length == 0:
+        raise TimeoutError("Partner Timeout")
+
+    mac_address = global_vars.serial.read(6).hex()
+    logging.info("OTA: %s", mac_address)
+
+    serial_message = global_vars.serial.read(message_length - 6)
+
+    global_vars.ota_queue[mac_address].handle_serial_message(serial_message)
+
+
 class SerialTask:
     def __init__(self):
         self.nowqtt_devices = NowqttDevices()
@@ -278,6 +292,8 @@ class SerialTask:
             service_byte = global_vars.serial.read(1)
             if service_byte.hex() == "ff":
                 self.handle_trace_route_message()
+            elif service_byte.hex() == "00":
+                handle_ota_message()
             else:
                 message_length = int.from_bytes(global_vars.serial.read(1), "little")
                 if message_length == 0:

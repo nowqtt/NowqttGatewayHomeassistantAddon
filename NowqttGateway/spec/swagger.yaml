@@ -16,12 +16,13 @@ tags:
   - name: Traces
   - name: Devices
   - name: DevicesNames
+  - name: Activity
 
 paths:
   /traces:
     get:
       summary: Get a list of traces
-      description: Returns a list of traces
+      description: Retu   rns a list of traces
       tags:
         - Traces
       parameters:
@@ -156,6 +157,70 @@ paths:
                     items:
                       $ref: '#/components/schemas/Devices_Names'
 
+  /devices/activity:
+    get:
+      summary: Get the activity log of devices
+      description: Returns the activity log of devices
+      tags:
+        - Activity
+      parameters:
+        - name: device_mac_address
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 12
+            maxLength: 12
+        - name: last
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+      responses:
+        200:
+          description: A list of activities
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: number
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Devices_Activity'
+
+  /ota/update/{device_mac_address}:
+    parameters:
+     - name: device_mac_address
+       in: path
+       schema:
+         type: string
+       required: true
+       description: Mac_address of the device that should be updated
+    post:
+     summary: OTA update a device
+     description: Start a OTA update for a device with a given MAC address and binary
+     requestBody:
+       content:
+         multipart/form-data:
+           schema:
+             type: object
+             properties:
+               file:
+                 type: string
+                 format: binary
+                 description: Binary file for OTA
+           encoding:
+             file:
+               contentType: application/octet-stream
+       required: true
+     responses:
+       '200':
+         description: File for OTA update received
+
 components:
   schemas:
 
@@ -201,3 +266,15 @@ components:
           type: string
         mac_address:
           type: string
+
+    Devices_Activity:
+      type: object
+      properties:
+        name:
+          type: string
+        mac_address:
+          type: string
+        timestamp:
+          type: string
+        activity:
+          type: integer

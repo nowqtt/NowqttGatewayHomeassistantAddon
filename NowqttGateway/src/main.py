@@ -13,7 +13,7 @@ from database import create_tables
 
 if __name__ == '__main__':
     global_vars.config = {}
-    with open("config.yaml", "r") as user_file:
+    with open("/app/src/config.yaml", "r") as user_file:
         try:
             temp = yaml.safe_load(user_file)
             global_vars.config = temp['config']
@@ -25,6 +25,8 @@ if __name__ == '__main__':
         level=global_vars.config["log_level"],
         datefmt='%Y-%m-%d %H:%M:%S'
     )
+
+    global_vars.ota_queue = {}
 
     global_vars.sql_lite_connection = sqlite3.connect('/app/database/sql_lite_database.db', check_same_thread=False)
 

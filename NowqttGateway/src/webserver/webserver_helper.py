@@ -1,6 +1,7 @@
 import json
 import logging
 
+import global_vars
 from database import (
     find_with_filters,
     find_devices,
@@ -9,6 +10,7 @@ from database import (
     update_devices_names,
     remove_devices_names
 )
+from ota import OtaManager
 
 
 def fetch_devices():
@@ -106,3 +108,17 @@ def patch_devices_names(mac_address, name):
 
 def delete_devices_names(mac_address):
     remove_devices_names(mac_address)
+
+def trigger_ota_update(mac_address, files):
+    #TODO test if mac address is valid
+    logging.info(mac_address)
+
+    binary_file_bytes = None
+    for filename, file in files.items():
+        if file.filename.endswith('.bin'):
+            binary_file_bytes = bytearray(file.read())
+            break
+
+    if binary_file_bytes is not None:
+        global_vars.ota_queue[mac_address] = OtaManager(binary_file_bytes, mac_address)
+        global_vars.ota_queue[mac_address].init_ota()
