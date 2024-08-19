@@ -54,7 +54,7 @@ def write_device_name_to_db(mac_address, device_name):
 
 def get_hop_count_to_and_from(mac_address, trace_message, byte_chars_per_hop):
     counter = 0
-    count_to = 0
+    count_to = -1 #GW is in the trace but not a hop -> start from -1
     count_from = -1 #GW is in the trace but not a hop -> start from -1
 
     reached_destination = False
