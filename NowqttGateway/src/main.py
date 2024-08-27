@@ -5,7 +5,7 @@ import threading
 import global_vars
 import serial
 
-import yaml
+import json
 
 from gateway import SerialTask
 from webserver import webserver
@@ -13,12 +13,13 @@ from database import create_tables
 
 if __name__ == '__main__':
     global_vars.config = {}
-    with open("config.yaml", "r") as user_file:
+    with open("/data/options.json", "r") as user_file:
         try:
-            temp = yaml.safe_load(user_file)
-            global_vars.config = temp['config']
+            file_contents = user_file.read()
         except Exception as e:
             logging.error(e)
+
+    global_vars.config = json.loads(file_contents)
 
     logging.basicConfig(
         format='%(asctime)s %(levelname)-8s %(message)s',

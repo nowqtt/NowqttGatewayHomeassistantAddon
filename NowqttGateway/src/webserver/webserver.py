@@ -80,5 +80,5 @@ def home():
                         mimetype="text/html")
 
 def run():
-    logging.info("Web server running on port %s", global_vars.config["web_server"]["port"])
-    app.run(debug=True, use_reloader=False, host='0.0.0.0', port=global_vars.config["web_server"]["port"])
+    logging.info("Web server running on port 54321")
+    app.run(debug=True, use_reloader=False, host='0.0.0.0', port=54321)
