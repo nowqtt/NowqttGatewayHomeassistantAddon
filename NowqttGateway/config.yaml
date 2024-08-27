@@ -1,8 +1,8 @@
 ---
-name: "Nowqtt Gateway"
-description: "Gateway for nowqtt"
-version: "1.0.2"
-slug: "nowqtt_gateway"
+name: "Nowqtt Mash Gateway"
+description: "Nowqtt Mash Gateway Homeassistant Add-on"
+version: "2.0.1"
+slug: "nowqtt_mash_gateway"
 url: "https://github.com/ChrisC132/NowqttGatewayHomeassistantAddon"
 init: false
 arch:
@@ -11,8 +11,11 @@ arch:
   - aarch64
   - amd64
   - i386
+startup: services
+ports:
+  54321/tcp: 54321
 devices:
-  - /dev/ttyUSB0
+  - /dev/ttyACM0
 apparmor: true
 
 options:
@@ -20,7 +23,7 @@ options:
   default_seconds_until_timeout: 60
   cooldown_between_config_request_on_unknown_sensor: 5
   serial:
-    com_port: "/dev/ttyUSB0"
+    com_port: "/dev/ttyACM0"
     baudrate: 115200
   mqtt_client:
     username: ""
