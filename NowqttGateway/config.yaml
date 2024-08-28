@@ -3,7 +3,7 @@ name: "Nowqtt Mash Gateway"
 description: "Nowqtt Mash Gateway Homeassistant Add-on"
 version: "2.0.1"
 slug: "nowqtt_mash_gateway"
-url: "https://github.com/ChrisC132/NowqttGatewayHomeassistantAddon"
+url: "https://github.com/nowqtt/NowqttGatewayHomeassistantAddon"
 init: false
 arch:
   - armhf
