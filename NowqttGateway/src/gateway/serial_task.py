@@ -164,7 +164,13 @@ class SerialTask:
 
     def process_mqtt_config_message(self, message, header):
         mqtt_topic = "homeassistant" + message.split("|")[0][1:]
-        mqtt_message = message.split("|")[1]
+        splitted_message = message.split("|")
+
+        if len(splitted_message) < 2:
+            logging.error("Error in config message: %s", message)
+            return
+
+        mqtt_message = splitted_message[1]
         mqtt_client_name = mqtt_topic.split("/")[3]
 
         try:
@@ -203,7 +209,7 @@ class SerialTask:
             else:
                 self.nowqtt_devices.devices[header["device_mac_address"]].entities[header["entity_id"]].mqtt_publish_config_message(mqtt_config)
         except JSONDecodeError:
-            logging.debug('JSON decoder Error')
+            logging.error('JSON decoder Error. Config Message %s', message)
 
     #TODO delete heartbeat at some point
     def process_heartbeat(self, header, message):
