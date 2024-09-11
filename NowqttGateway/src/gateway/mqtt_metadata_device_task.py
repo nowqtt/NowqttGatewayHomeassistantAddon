@@ -40,6 +40,7 @@ class MqttMetadataDevice:
     def __init__(self):
         self.mqtt_client = mqtt.Client(client_id="nowqtt_management")
         self.mqtt_sensors = get_mqtt_discovery_topic()
+
     def on_connect(self, client, userdata, flags, rc):
         logging.info("MQTT Management Device connected")
 
