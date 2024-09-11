@@ -100,6 +100,9 @@ class MQTTTask:
         self.mqtt_client.on_disconnect = self.on_disconnect
         self.mqtt_client.set_last_known_state = self.set_last_known_state
 
+        #TODO add last will to set avail topic to offline
+        #self.mqtt_client.will_set(get_availability_topic(), payload="offline", qos=0, retain=True)
+
         self.mqtt_client.username_pw_set(global_vars.mqtt_client_credentials["username"],
                                          global_vars.mqtt_client_credentials["password"])
 

@@ -10,7 +10,7 @@ def get_mqtt_discovery_topic():
     device = {
         "identifiers": "NowQtt",
         "suggested_area": "Mein Zimmer",
-        "manufacturer": "NowQtt LLC Inc. \u2122",
+        "manufacturer": "NowQtt LLC Inc. \u2122 \u00A9",
         "name": "NowQtt"
     }
 
@@ -33,6 +33,9 @@ def get_mqtt_discovery_topic():
     ]
 
 
+def get_availability_topic():
+    return get_mqtt_discovery_topic()[0]["discovery_message"]["availability_topic"]
+
 class MqttMetadataDevice:
     def __init__(self):
         self.mqtt_client = mqtt.Client(client_id="nowqtt_management")
@@ -42,10 +45,11 @@ class MqttMetadataDevice:
 
         for sensor in self.mqtt_sensors:
             self.mqtt_client.publish(sensor["discovery_topic"], json.dumps(sensor["discovery_message"]))
-            self.mqtt_client.publish(sensor["discovery_message"]["availability_topic"], "online")
 
             if "command_topic" in sensor["discovery_message"]:
                 self.mqtt_client.subscribe(sensor["discovery_message"]["command_topic"])
+
+        self.mqtt_client.publish(get_availability_topic(), "online", retain=True)
 
     def on_message(self, client, userdata, msg):
         if msg.topic == "homeassistant/button/nowqtt/trigger_reset/com":
@@ -69,6 +73,7 @@ class MqttMetadataDevice:
         self.mqtt_client.on_connect = self.on_connect
         self.mqtt_client.on_message = self.on_message
         self.mqtt_client.on_disconnect = self.on_disconnect
+        self.mqtt_client.will_set(get_availability_topic(), payload="offline", qos=0, retain=True)
 
         self.mqtt_client.username_pw_set(global_vars.mqtt_client_credentials["username"],
                                          global_vars.mqtt_client_credentials["password"])
