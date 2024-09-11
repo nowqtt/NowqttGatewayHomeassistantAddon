@@ -20,9 +20,9 @@ from database import (
     update_devices_names,
     insert_devices_names
 )
-from . import mqtt_sensor_available_task
-
-from . import trace_route_task
+from . import (mqtt_sensor_available_task,
+               mqtt_metadata_device_task,
+               trace_route_task)
 
 from .formatter import (
     expand_sensor_config,
@@ -260,6 +260,11 @@ class SerialTask:
         t = Thread(target=trace_route_task.TraceRouteTask(
             self.nowqtt_devices
         ).run())
+        t.daemon = True
+        t.start()
+
+        # Mqtt metadata and control task
+        t = Thread(target=mqtt_metadata_device_task.MqttMetadataDevice().start_mqtt_task)
         t.daemon = True
         t.start()
 
