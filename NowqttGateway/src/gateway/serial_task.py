@@ -52,7 +52,7 @@ def write_device_name_to_db(mac_address, device_name):
         insert_devices_names(mac_address, device_name, 0)
 
 
-def get_hop_count_to_and_from(mac_address, trace_message, byte_chars_per_hop):
+def calculate_hop_count_to_and_from(mac_address, trace_message, byte_chars_per_hop):
     counter = 0
     count_to = -1 #GW is in the trace but not a hop -> start from -1
     count_from = -1 #GW is in the trace but not a hop -> start from -1
@@ -130,7 +130,7 @@ class SerialTask:
             insert_hop_table(trace_uuid, x, hop_mac_address, hop_rssi, hop_dest_seq, route_age, hop_count_message)
 
         # Publish hop count
-        self.nowqtt_devices.devices[serial_header.hex()].hop_count_entity.mqtt_publish(get_hop_count_to_and_from(
+        self.nowqtt_devices.devices[serial_header.hex()].hop_count_entity.mqtt_publish(calculate_hop_count_to_and_from(
             serial_header.hex(),
             trace_message_string,
             byte_chars_per_hop
@@ -240,15 +240,8 @@ class SerialTask:
         elif header["command_type"] == global_vars.SerialCommands.HEARTBEAT.value:
             self.process_heartbeat(header, 10)
 
-    def disconnect_all_mqtt_clients(self):
-        self.nowqtt_devices.mqtt_disconnect_all()
-        logging.debug("Program exits. Disconnecting all mqtt clients")
-
     # Receive serial messages
     def start_serial_task(self):
-        # Cleanup function when program exits
-        atexit.register(self.disconnect_all_mqtt_clients)
-
         # Test if sensor is available
         t = Thread(target=mqtt_sensor_available_task.MQTTSensorAvailableTask(
             self.nowqtt_devices

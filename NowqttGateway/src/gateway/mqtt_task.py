@@ -1,3 +1,4 @@
+import json
 import logging
 import global_vars
 import threading
@@ -21,16 +22,16 @@ class MQTTTask:
                  subscriptions,
                  device_mac_address,
                  entity_id,
-                 mqtt_config_message,
-                 mqtt_config_topic,
-                 mqtt_state_topic):
+                 mqtt_config,
+                 mqtt_config_topic):
         self.mqtt_client = mqtt_client
         self.subscriptions = subscriptions
         self.device_mac_address = device_mac_address
         self.entity_id = entity_id,
-        self.mqtt_config_message = mqtt_config_message
+        self.mqtt_config_message = json.dumps(mqtt_config)
         self.mqtt_config_topic = mqtt_config_topic
-        self.mqtt_state_topic = mqtt_state_topic
+        self.mqtt_state_topic = mqtt_config["state_topic"]
+        self.mqtt_availability_topic = mqtt_config["availability_topic"]
 
         self.last_known_state = None
 
@@ -100,8 +101,7 @@ class MQTTTask:
         self.mqtt_client.on_disconnect = self.on_disconnect
         self.mqtt_client.set_last_known_state = self.set_last_known_state
 
-        #TODO add last will to set avail topic to offline
-        #self.mqtt_client.will_set(get_availability_topic(), payload="offline", qos=0, retain=True)
+        self.mqtt_client.will_set(self.mqtt_availability_topic, payload="offline", qos=0, retain=True)
 
         self.mqtt_client.username_pw_set(global_vars.mqtt_client_credentials["username"],
                                          global_vars.mqtt_client_credentials["password"])
