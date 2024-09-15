@@ -7,7 +7,8 @@ from database import (
     find_device_names,
     insert_devices_names,
     update_devices_names,
-    remove_devices_names
+    remove_devices_names,
+    find_current_activity_data, find_activity_by_mac_address, find_active_or_inactive_devices
 )
 
 
@@ -26,9 +27,7 @@ def fetch_devices():
         "items": devices
     }
 
-    # Convert data to JSON format
-    json_data = json.dumps(result, indent=4)
-    return json_data
+    return json.dumps(result, indent=4)
 
 def fetch_traces(device_mac_address, last):
     filters = []
@@ -73,9 +72,7 @@ def fetch_traces(device_mac_address, last):
         "items": list(traces.values())
     }
 
-    # Convert data to JSON format
-    json_data = json.dumps(result, indent=4)
-    return json_data
+    return json.dumps(result, indent=4)
 
 def fetch_devices_names(mac_address = None):
     rows = find_device_names(mac_address)
@@ -92,9 +89,7 @@ def fetch_devices_names(mac_address = None):
         "items": names
     }
 
-    # Convert data to JSON format
-    json_data = json.dumps(result, indent=4)
-    return json_data
+    return json.dumps(result, indent=4)
 
 def patch_devices_names(mac_address, name):
     rows = find_device_names(mac_address)
@@ -106,3 +101,27 @@ def patch_devices_names(mac_address, name):
 
 def delete_devices_names(mac_address):
     remove_devices_names(mac_address)
+
+def fetch_devices_activity(mac_address, last):
+    if mac_address is None:
+        activity_data = find_current_activity_data()
+    else:
+        activity_data = find_activity_by_mac_address(mac_address, last)
+
+    activity = []
+    for row in activity_data:
+        activity.append({
+            "mac_address": row[0],
+            "timestamp": row[1],
+            "activity": row[2],
+            "name": row[3]
+        })
+
+    result = {
+        "total": len(activity),
+        "online": len(find_active_or_inactive_devices(1)),
+        "offline": len(find_active_or_inactive_devices(0)),
+        "items": activity
+    }
+
+    return json.dumps(result, indent=4)

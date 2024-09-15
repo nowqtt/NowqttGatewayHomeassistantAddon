@@ -108,6 +108,10 @@ class NowqttDevices:
         for mac_address in self.devices.keys():
             insert_device_activity_table(mac_address, 0)
 
+    def set_activity_to_offline(self):
+        for mac_address in self.devices.keys():
+            insert_device_activity_table(mac_address, 0)
+
 class Device:
     def __init__(self, seconds_until_timeout, hop_count_entity):
         self.last_seen_timestamp = 0

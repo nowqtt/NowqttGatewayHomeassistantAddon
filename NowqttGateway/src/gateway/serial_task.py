@@ -240,8 +240,14 @@ class SerialTask:
         elif header["command_type"] == global_vars.SerialCommands.HEARTBEAT.value:
             self.process_heartbeat(header, 10)
 
+    def disconnect_all_mqtt_clients(self):
+        self.nowqtt_devices.set_activity_to_offline()
+
     # Receive serial messages
     def start_serial_task(self):
+        # Cleanup function when program exits
+        atexit.register(self.disconnect_all_mqtt_clients)
+
         # Test if sensor is available
         t = Thread(target=mqtt_sensor_available_task.MQTTSensorAvailableTask(
             self.nowqtt_devices

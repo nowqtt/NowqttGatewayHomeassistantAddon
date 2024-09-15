@@ -8,7 +8,7 @@ from flasgger import Swagger
 import global_vars
 
 from .webserver_helper import fetch_traces, fetch_devices, fetch_devices_names, patch_devices_names, \
-    delete_devices_names
+    delete_devices_names, fetch_devices_activity
 
 app = Flask(__name__)
 app.config['SWAGGER'] = {
@@ -58,6 +58,15 @@ def traces():
                     status=200,
                     mimetype="application/json")
 
+@app.route("/v1/devices/activity", methods=['GET'])
+def devices_activity():
+    mac_address = request.args.get('device_mac_address', default=None, type=str)
+    last = request.args.get('last', default=100, type=int)
+
+    return Response(response=fetch_devices_activity(mac_address, last),
+                    status=200,
+                    mimetype="application/json")
+
 @app.route("/", methods=['GET'])
 def home():
     response_body = """
@@ -81,4 +90,4 @@ def home():
 
 def run():
     logging.info("Web server running on port 54321")
-    app.run(debug=True, use_reloader=False, host='0.0.0.0', port=54321)
+    app.run(debug=True, use_reloader=False, host='0.0.0.0', port=1234)
