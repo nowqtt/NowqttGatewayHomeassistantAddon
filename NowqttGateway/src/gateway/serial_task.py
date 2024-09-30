@@ -130,11 +130,12 @@ class SerialTask:
             insert_hop_table(trace_uuid, x, hop_mac_address, hop_rssi, hop_dest_seq, route_age, hop_count_message)
 
         # Publish hop count
-        self.nowqtt_devices.devices[serial_header.hex()].hop_count_entity.mqtt_publish(calculate_hop_count_to_and_from(
-            serial_header.hex(),
-            trace_message_string,
-            byte_chars_per_hop
-        ))
+        if self.nowqtt_devices.has_device(serial_header.hex()):
+            self.nowqtt_devices.devices[serial_header.hex()].hop_count_entity.mqtt_publish(calculate_hop_count_to_and_from(
+                serial_header.hex(),
+                trace_message_string,
+                byte_chars_per_hop
+            ))
 
     def request_config_message(self, header):
         self.config_message_request_cooldown[header["device_mac_address"]] = time.time()
