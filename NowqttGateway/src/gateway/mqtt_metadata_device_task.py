@@ -9,7 +9,6 @@ import paho.mqtt.client as mqtt
 def get_mqtt_discovery_topic():
     device = {
         "identifiers": "NowQtt",
-        "suggested_area": "Mein Zimmer",
         "manufacturer": "NowQtt LLC Inc. \u2122 \u00A9",
         "name": "NowQtt"
     }
@@ -44,6 +43,8 @@ class MqttMetadataDevice:
     def on_connect(self, client, userdata, flags, rc):
         logging.info("MQTT Management Device connected")
 
+        self.mqtt_client.subscribe("homeassistant/status")
+
         for sensor in self.mqtt_sensors:
             self.mqtt_client.publish(sensor["discovery_topic"], json.dumps(sensor["discovery_message"]))
 
@@ -57,6 +58,13 @@ class MqttMetadataDevice:
             if msg.payload.decode("utf-8") == "PRESS":
                 logging.info("Send reset message")
                 global_vars.serial.write(bytearray.fromhex("FF13ACFE00"))
+
+        elif msg.topic == "homeassistant/status":
+            if msg.payload.decode("utf-8") == "online":
+                for sensor in self.mqtt_sensors:
+                    self.mqtt_client.publish(sensor["discovery_topic"], json.dumps(sensor["discovery_message"]))
+
+                self.mqtt_client.publish(get_availability_topic(), payload="online", retain=True)
 
     def on_disconnect(self, client, userdata, rc):
         logging.info('Mqtt Management Device %s disconnected', client._client_id.decode("utf-8"))
