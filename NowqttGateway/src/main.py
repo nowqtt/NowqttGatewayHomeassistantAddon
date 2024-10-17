@@ -13,7 +13,6 @@ from database import create_tables
 
 if __name__ == '__main__':
     global_vars.config = {}
-    with open("/app/src/config.yaml", "r") as user_file:
     with open("/data/options.json", "r") as user_file:
         try:
             file_contents = user_file.read()
