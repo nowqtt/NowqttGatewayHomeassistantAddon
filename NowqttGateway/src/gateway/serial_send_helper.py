@@ -18,6 +18,6 @@ def send_serial_message(service, mac_address, serial_command_type, entity_id, pa
 
     formatted_message[4] = len(formatted_message) - 5   # set message length
 
-    logging.debug('Serial message: %s', formatted_message.hex())
+    # logging.info('Serial message: %s', formatted_message.hex())
 
     global_vars.serial.write(formatted_message)

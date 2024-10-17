@@ -8,6 +8,8 @@ RUN pip3 install --no-cache-dir --upgrade pip
 RUN pip3 install --trusted-host pypi.python.org -r requirements.txt
 
 COPY src src
+COPY database database
+COPY spec spec
 COPY run.sh ./
 
 RUN chmod a+x run.sh

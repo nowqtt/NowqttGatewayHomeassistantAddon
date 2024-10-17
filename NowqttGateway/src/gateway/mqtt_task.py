@@ -1,3 +1,4 @@
+import json
 import logging
 import global_vars
 import threading
@@ -21,21 +22,21 @@ class MQTTTask:
                  subscriptions,
                  device_mac_address,
                  entity_id,
-                 mqtt_config_message,
-                 mqtt_config_topic,
-                 mqtt_state_topic):
+                 mqtt_config,
+                 mqtt_config_topic):
         self.mqtt_client = mqtt_client
         self.subscriptions = subscriptions
         self.device_mac_address = device_mac_address
         self.entity_id = entity_id,
-        self.mqtt_config_message = mqtt_config_message
+        self.mqtt_config_message = json.dumps(mqtt_config)
         self.mqtt_config_topic = mqtt_config_topic
-        self.mqtt_state_topic = mqtt_state_topic
+        self.mqtt_state_topic = mqtt_config["state_topic"]
+        self.mqtt_availability_topic = mqtt_config["availability_topic"]
 
         self.last_known_state = None
 
     def on_connect(self, client, userdata, flags, rc):
-        logging.info("MQTT connected with result code %i", rc)
+        logging.info('Device %s connected to mqtt', self.mqtt_client._client_id.decode("utf-8"))
 
         for sub in self.subscriptions:
             self.mqtt_client.subscribe(sub)
@@ -86,8 +87,6 @@ class MQTTTask:
         self.last_known_state = message
 
     def connect_to_mqtt(self):
-        logging.info('connect_to_mqtt %s', self.mqtt_client._client_id.decode("utf-8"))
-
         try:
             self.mqtt_client.connect(global_vars.mqtt_client_credentials["address"],
                                      global_vars.mqtt_client_credentials["port"], 60)
@@ -101,6 +100,8 @@ class MQTTTask:
         self.mqtt_client.on_message = self.on_message
         self.mqtt_client.on_disconnect = self.on_disconnect
         self.mqtt_client.set_last_known_state = self.set_last_known_state
+
+        self.mqtt_client.will_set(self.mqtt_availability_topic, payload="offline", qos=0, retain=True)
 
         self.mqtt_client.username_pw_set(global_vars.mqtt_client_credentials["username"],
                                          global_vars.mqtt_client_credentials["password"])

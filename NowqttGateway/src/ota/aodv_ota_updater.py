@@ -40,9 +40,9 @@ class OtaCommands(Enum):
 
 
 class OtaManager:
-    def __init__(self, ota_data, mac_address):
+    def __init__(self, ota_data_file, mac_address):
         self.state = "START"
-        self.ota_data = ota_data
+        self.ota_data_file = ota_data_file
         self.mac_address = mac_address
 
         self.qos_sendheader = bytearray.fromhex("FF13AB0006")
@@ -53,7 +53,7 @@ class OtaManager:
         self.sendheader.extend(bytearray.fromhex(self.mac_address))
         self.qos_sendheader.extend(bytearray.fromhex(self.mac_address))
 
-        self.ota_data_len = len(self.ota_data)
+        self.ota_data_len = len(self.ota_data_file)
 
         self.packets_to_retransmit = []
 
@@ -71,15 +71,16 @@ class OtaManager:
 
         if (self.ota_data_len % self.payload_size) != 0:
             packet_count += 1
-        logging.info("Read %i bytes from binery --> %i Packets", len(self.ota_data), packet_count)
+        logging.info("Read %i bytes from binery --> %i Packets", len(self.ota_data_file), packet_count)
 
         request_msg = bytearray(self.preamble_len)
         request_msg[:] = self.qos_sendheader
         request_msg.append(OtaCommands.OTA_INIT.value)
-        request_msg.extend(bytearray(c_uint32(len(self.ota_data))))
+        request_msg.extend(bytearray(c_uint32(len(self.ota_data_file))))
 
         request_msg[self.preamble_len - 1] = len(request_msg) - self.preamble_len
         global_vars.serial.write(request_msg)
+        logging.info("message sent")
         # global_vars.serial.flushInput()
 
     def send_init_ota_data(self):
@@ -121,9 +122,9 @@ class OtaManager:
         send.extend(bytearray(c_uint32(num)))
 
         if num == (self.ota_data_len // self.payload_size):
-            send.extend(self.ota_data[num * self.payload_size:])
+            send.extend(self.ota_data_file[num * self.payload_size:])
         else:
-            send.extend(self.ota_data[num * self.payload_size:(num + 1) * self.payload_size])
+            send.extend(self.ota_data_file[num * self.payload_size:(num + 1) * self.payload_size])
 
         send[self.preamble_len - 1] = len(send) - self.preamble_len
         # logging.debug("Len in header: %i real len %i", send[preamble_len - 1], len(send))

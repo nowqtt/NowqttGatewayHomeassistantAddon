@@ -22,7 +22,7 @@ paths:
   /traces:
     get:
       summary: Get a list of traces
-      description: Retu   rns a list of traces
+      description: Returns a list of traces
       tags:
         - Traces
       parameters:

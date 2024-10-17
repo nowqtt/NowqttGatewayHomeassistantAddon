@@ -20,9 +20,9 @@ from database import (
     update_devices_names,
     insert_devices_names
 )
-from . import mqtt_sensor_available_task
-
-from . import trace_route_task
+from . import (mqtt_sensor_available_task,
+               mqtt_metadata_device_task,
+               trace_route_task)
 
 from .formatter import (
     expand_sensor_config,
@@ -52,9 +52,9 @@ def write_device_name_to_db(mac_address, device_name):
         insert_devices_names(mac_address, device_name, 0)
 
 
-def get_hop_count_to_and_from(mac_address, trace_message, byte_chars_per_hop):
+def calculate_hop_count_to_and_from(mac_address, trace_message, byte_chars_per_hop):
     counter = 0
-    count_to = 0
+    count_to = -1 #GW is in the trace but not a hop -> start from -1
     count_from = -1 #GW is in the trace but not a hop -> start from -1
 
     reached_destination = False
@@ -144,11 +144,12 @@ class SerialTask:
             insert_hop_table(trace_uuid, x, hop_mac_address, hop_rssi, hop_dest_seq, route_age, hop_count_message)
 
         # Publish hop count
-        self.nowqtt_devices.devices[serial_header.hex()].hop_count_entity.mqtt_publish(get_hop_count_to_and_from(
-            serial_header.hex(),
-            trace_message_string,
-            byte_chars_per_hop
-        ))
+        if self.nowqtt_devices.has_device(serial_header.hex()):
+            self.nowqtt_devices.devices[serial_header.hex()].hop_count_entity.mqtt_publish(calculate_hop_count_to_and_from(
+                serial_header.hex(),
+                trace_message_string,
+                byte_chars_per_hop
+            ))
 
     def request_config_message(self, header):
         self.config_message_request_cooldown[header["device_mac_address"]] = time.time()
@@ -178,7 +179,13 @@ class SerialTask:
 
     def process_mqtt_config_message(self, message, header):
         mqtt_topic = "homeassistant" + message.split("|")[0][1:]
-        mqtt_message = message.split("|")[1]
+        splitted_message = message.split("|")
+
+        if len(splitted_message) < 2:
+            logging.error("Error in config message: %s", message)
+            return
+
+        mqtt_message = splitted_message[1]
         mqtt_client_name = mqtt_topic.split("/")[3]
 
         try:
@@ -217,7 +224,7 @@ class SerialTask:
             else:
                 self.nowqtt_devices.devices[header["device_mac_address"]].entities[header["entity_id"]].mqtt_publish_config_message(mqtt_config)
         except JSONDecodeError:
-            logging.debug('JSON decoder Error')
+            logging.error('JSON decoder Error. Config Message %s', message)
 
     #TODO delete heartbeat at some point
     def process_heartbeat(self, header, message):
@@ -249,8 +256,7 @@ class SerialTask:
             self.process_heartbeat(header, 10)
 
     def disconnect_all_mqtt_clients(self):
-        self.nowqtt_devices.mqtt_disconnect_all()
-        logging.debug("Program exits. Disconnecting all mqtt clients")
+        self.nowqtt_devices.set_activity_to_offline()
 
     # Receive serial messages
     def start_serial_task(self):
@@ -268,6 +274,11 @@ class SerialTask:
         t = Thread(target=trace_route_task.TraceRouteTask(
             self.nowqtt_devices
         ).run())
+        t.daemon = True
+        t.start()
+
+        # Mqtt metadata and control task
+        t = Thread(target=mqtt_metadata_device_task.MqttMetadataDevice().start_mqtt_task)
         t.daemon = True
         t.start()
 

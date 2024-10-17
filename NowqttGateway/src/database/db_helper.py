@@ -170,3 +170,48 @@ def insert_device_activity_table(mac_address, activity):
             "INSERT INTO device_activity (mac_address, activity) VALUES (?, ?)",
             (mac_address, activity)
         )
+
+def find_current_activity_data():
+    query = f"""
+        SELECT device_activity.mac_address, MAX(timestamp) AS last_timestamp, activity, device_names.name
+        FROM device_activity
+        INNER JOIN device_names ON device_activity.mac_address = device_names.mac_address
+        GROUP BY device_activity.mac_address
+    """
+
+    cursor = global_vars.sql_lite_connection.cursor()
+    cursor.execute(query)
+    return cursor.fetchall()
+
+def find_activity_by_mac_address(mac_address, limit):
+    query = f"""
+            SELECT device_activity.mac_address, timestamp, activity, device_names.name
+            FROM device_activity
+            LEFT JOIN device_names ON device_activity.mac_address = device_names.mac_address
+            WHERE device_activity.mac_address like '{mac_address}'
+            ORDER BY device_activity.timestamp
+            LIMIT {limit}
+        """
+
+    cursor = global_vars.sql_lite_connection.cursor()
+    cursor.execute(query)
+    return cursor.fetchall()
+
+def find_active_or_inactive_devices(activity):
+    query = f"""
+        SELECT device_activity.mac_address, MAX(timestamp) AS last_timestamp, activity, device_names.name
+        FROM device_activity
+        INNER JOIN device_names ON device_activity.mac_address = device_names.mac_address
+        GROUP BY device_activity.mac_address
+    """
+
+    cursor = global_vars.sql_lite_connection.cursor()
+    cursor.execute(query)
+    activities = cursor.fetchall()
+
+    result = []
+    for a in activities:
+        if a[2] == activity:
+            result.append(a)
+
+    return result

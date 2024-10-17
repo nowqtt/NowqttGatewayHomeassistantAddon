@@ -13,7 +13,7 @@ from .webserver_helper import (
     fetch_devices_names,
     patch_devices_names,
     delete_devices_names,
-    trigger_ota_update
+    fetch_devices_activity
 )
 
 app = Flask(__name__)
@@ -70,6 +70,15 @@ def traces():
                     status=200,
                     mimetype="application/json")
 
+@app.route("/v1/devices/activity", methods=['GET'])
+def devices_activity():
+    mac_address = request.args.get('device_mac_address', default=None, type=str)
+    last = request.args.get('last', default=100, type=int)
+
+    return Response(response=fetch_devices_activity(mac_address, last),
+                    status=200,
+                    mimetype="application/json")
+
 @app.route("/", methods=['GET'])
 def home():
     response_body = """
@@ -92,5 +101,5 @@ def home():
                         mimetype="text/html")
 
 def run():
-    logging.info("Web server running on port %s", global_vars.config["web_server"]["port"])
-    app.run(debug=True, use_reloader=False, host='0.0.0.0', port=global_vars.config["web_server"]["port"])
+    logging.info("Web server running on port 54321")
+    app.run(debug=True, use_reloader=False, host='0.0.0.0', port=1234)

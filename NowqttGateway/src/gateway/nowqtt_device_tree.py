@@ -10,6 +10,31 @@ from database import insert_device_activity_table
 from . import mqtt_task
 
 
+def create_mqtt_client(header, mqtt_config, client_id, mqtt_config_topic, mqtt_subscriptions):
+    new_client = mqtt.Client(client_id=client_id)
+
+    t = Thread(target=mqtt_task.MQTTTask(
+        new_client,
+        mqtt_subscriptions,
+        header["device_mac_address"],
+        header["entity_id"],
+        mqtt_config,
+        mqtt_config_topic
+    ).start_mqtt_task)
+    t.daemon = True
+    t.start()
+
+    while not new_client.is_connected():
+        time.sleep(0.1)
+
+    return Entity(
+        mqtt_config["state_topic"],
+        new_client,
+        mqtt_config['availability_topic'],
+        mqtt_config_topic
+    )
+
+
 class NowqttDevices:
     def __init__(self):
         self.devices: Dict[bytearray, Device] = {}
@@ -37,37 +62,18 @@ class NowqttDevices:
                     mqtt_config_message_hop_count,
                     mqtt_config_topic_hop_count,
                     seconds_until_timeout):
-
-        # logging.debug(seconds_until_timeout)
-        # logging.debug(mqtt_config)
-
         # Test if device exists
         if self.has_device(header["device_mac_address"]):
             device = self.devices[header["device_mac_address"]]
         else:
-            mqtt_client_hop_count = mqtt.Client(client_id=header["device_mac_address"] + "00")
-
-            t = Thread(target=mqtt_task.MQTTTask(
-                mqtt_client_hop_count,
-                ["homeassistant/status"],
-                header["device_mac_address"],
-                0,
-                json.dumps(mqtt_config_message_hop_count),
+            new_hop_count_entity = create_mqtt_client(
+                header,
+                mqtt_config_message_hop_count,
+                header["device_mac_address"] + "00",
                 mqtt_config_topic_hop_count,
-                mqtt_config_message_hop_count["state_topic"]
-            ).start_mqtt_task)
-            t.daemon = True
-            t.start()
-
-            while not mqtt_client_hop_count.is_connected():
-                time.sleep(0.1)
-
-            new_hop_count_entity = Entity(
-                mqtt_config_message_hop_count["state_topic"],
-                mqtt_client_hop_count,
-                mqtt_config['availability_topic'],
-                mqtt_config_topic
+                ["homeassistant/status"]
             )
+
             device = Device(seconds_until_timeout, new_hop_count_entity)
             device.entities[0] = new_hop_count_entity
 
@@ -77,29 +83,14 @@ class NowqttDevices:
 
         # Test if entity exists
         if not device.has_entity(header["entity_id"]):
-            new_client = mqtt.Client(client_id=header["device_mac_address_and_entity_id"])
-
-            t = Thread(target=mqtt_task.MQTTTask(
-                new_client,
-                mqtt_subscriptions,
-                header["device_mac_address"],
-                header["entity_id"],
-                json.dumps(mqtt_config),
+            entity = create_mqtt_client(
+                header,
+                mqtt_config,
+                header["device_mac_address_and_entity_id"],
                 mqtt_config_topic,
-                mqtt_config["state_topic"]
-            ).start_mqtt_task)
-            t.daemon = True
-            t.start()
-
-            while not new_client.is_connected():
-                time.sleep(0.1)
-
-            entity = Entity(
-                mqtt_config["state_topic"],
-                new_client,
-                mqtt_config['availability_topic'],
-                mqtt_config_topic
+                mqtt_subscriptions
             )
+
             device.entities[header["entity_id"]] = entity
 
         device.set_last_seen_timestamp_to_now()
@@ -117,6 +108,9 @@ class NowqttDevices:
         for mac_address in self.devices.keys():
             insert_device_activity_table(mac_address, 0)
 
+    def set_activity_to_offline(self):
+        for mac_address in self.devices.keys():
+            insert_device_activity_table(mac_address, 0)
 
 class Device:
     def __init__(self, seconds_until_timeout, hop_count_entity):
@@ -137,7 +131,6 @@ class Device:
 
         for device in self.entities.values():
             device.mqtt_disconnect()
-
 
 class Entity:
     def __init__(self, mqtt_state_topic, mqtt_client, mqtt_availability_topic, mqtt_config_topic):
