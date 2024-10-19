@@ -5,6 +5,7 @@ from enum import Enum
 from threading import Thread
 
 import global_vars
+from gateway import send_ota_init_serial_message
 
 
 class OtaCommands(Enum):
@@ -15,33 +16,8 @@ class OtaCommands(Enum):
     OTA_DISCOVER = 105
     OTA_DISCOVER_RESPONSE = 106
 
-
-# def read_msg(qos_sendheader):
-#     counter = 0
-#     while counter < 4:
-#         readback = global_vars.serial.read(1)
-#
-#         if len(readback) == 0:
-#             raise TimeoutError("Partner Timeout")
-#         if readback == qos_sendheader[counter:counter + 1]:
-#             counter += 1
-#         else:
-#             counter = 0
-#
-#     read_len = int.from_bytes(global_vars.serial.read(1), "little")
-#     if read_len == 0:
-#         raise TimeoutError("Partner Timeout")
-#
-#     data = global_vars.serial.read(read_len)
-#     if len(data) != read_len:
-#         raise FormatError("Msg encoding Error!")
-#
-#     return data
-
-
 class OtaManager:
     def __init__(self, ota_data_file, mac_address):
-        self.state = "START"
         self.ota_data_file = ota_data_file
         self.mac_address = mac_address
 
@@ -56,62 +32,95 @@ class OtaManager:
         self.ota_data_len = len(self.ota_data_file)
 
         self.packets_to_retransmit = []
+        self.already_sending = False
+        self.last_retransmit_time = None
 
     def handle_serial_message(self, serial_message):
-        if serial_message[0] == OtaCommands.OTA_READY.value:
-            t = Thread(target=self.send_init_ota_data)
-            t.daemon = True
-            t.start()
+        if not self.already_sending:
+            if serial_message[0] == OtaCommands.OTA_READY.value:
+                t = Thread(target=self.send_init_ota_data)
+                t.daemon = True
+                t.start()
 
-        elif serial_message[0] == OtaCommands.OTA_RETRANSMIT.value:
-            self.packets_to_retransmit.append(int.from_bytes(serial_message[1:4], "little"))
+            elif serial_message[0] == OtaCommands.OTA_RETRANSMIT.value:
+                self.packets_to_retransmit.append(int.from_bytes(serial_message[1:4], "little"))
+                self.last_retransmit_time = time.time()
+
+                logging.info("OTA %i", int.from_bytes(serial_message[1:4], "little"))
 
     def init_ota(self):
         packet_count = self.ota_data_len // self.payload_size
 
         if (self.ota_data_len % self.payload_size) != 0:
             packet_count += 1
-        logging.info("Read %i bytes from binery --> %i Packets", len(self.ota_data_file), packet_count)
+        logging.info("OTA update %s: Binary %i bytes --> %i Packets", self.mac_address, len(self.ota_data_file), packet_count)
 
         request_msg = bytearray(self.preamble_len)
         request_msg[:] = self.qos_sendheader
         request_msg.append(OtaCommands.OTA_INIT.value)
         request_msg.extend(bytearray(c_uint32(len(self.ota_data_file))))
 
+        logging.info(c_uint32(len(self.ota_data_file)))
+
         request_msg[self.preamble_len - 1] = len(request_msg) - self.preamble_len
-        global_vars.serial.write(request_msg)
-        logging.info("message sent")
-        # global_vars.serial.flushInput()
+        # global_vars.serial.write(request_msg)
 
-    def send_init_ota_data(self):
-        logging.info("Got Init -> sending data")
-        for i in range((self.ota_data_len // self.payload_size) + 1):
-            if i == 0:
-                logging.info('send first message')
-            if i % 100 == 0:
-                logging.info('Hier %d', i)
-            self.send_payload_packet(i)
+        logging.info("innit message %s", request_msg.hex())
 
-        t = Thread(target=self.retransmit_ota_data)
+        send_ota_init_serial_message(
+            "00",
+            self.mac_address,
+            OtaCommands.OTA_INIT.value,
+            len(self.ota_data_file),
+        )
+
+        t = Thread(target=self.retransmit_listener)
         t.daemon = True
         t.start()
 
-    def retransmit_ota_data(self):
-        logging.info("In retransmit ota")
-        time.sleep(2)
+    def send_init_ota_data(self):
+        self.already_sending = True
+        logging.info("Got Init -> sending data")
+        for i in range((self.ota_data_len // self.payload_size) + 1):
+            if i % 100 == 0:
+                logging.info('Sending package %d', i)
+            self.send_payload_packet(i)
 
-        logging.info("In retransmit after wait")
+        self.already_sending = False
+
+    def retransmit_listener(self):
+        logging.info("retransmit_listener starting")
+        while True:
+            if self.last_retransmit_time is not None:
+                if time.time() - self.last_retransmit_time > 1.5:
+                    logging.info("2 seconds of inactivity, calling trigger_function")
+                    self.retransmit_ota_data()
+                    break
+            time.sleep(0.1)  # Check every 100ms for efficiency
+
+        logging.info("retransmit_listener ending")
+
+    def retransmit_ota_data(self):
+        self.already_sending = True
+        logging.info("Retransmitting %d packages", len(self.packets_to_retransmit))
 
         if not self.packets_to_retransmit:
             global_vars.ota_queue.pop(self.mac_address)
             return
 
+        i = 0
         for retransmit in self.packets_to_retransmit:
+            if i % 100 == 0:
+                logging.info('Sending package %d', i)
+            i+=1
+
             self.send_payload_packet(retransmit)
 
         self.packets_to_retransmit = []
+        self.already_sending = False
+        self.last_retransmit_time = None
 
-        t = Thread(target=self.retransmit_ota_data)
+        t = Thread(target=self.retransmit_listener)
         t.daemon = True
         t.start()
 
@@ -127,44 +136,5 @@ class OtaManager:
             send.extend(self.ota_data_file[num * self.payload_size:(num + 1) * self.payload_size])
 
         send[self.preamble_len - 1] = len(send) - self.preamble_len
-        # logging.debug("Len in header: %i real len %i", send[preamble_len - 1], len(send))
         global_vars.serial.write(send)
-        time.sleep(0.05)
-
-    # def update(self):
-    #     # logging.debug("len of %i", len(request_msg))
-    #     # logging.debug("Sendheader: %s", request_msg.hex())
-    #
-    #     # response_msg = read_msg(self.qos_sendheader)
-    #     # if response_msg[6] != OtaCommands.OTA_READY.value:
-    #     #     raise NameError("Wrong Response after init")
-    #
-    #     # logging.info("Got Init")
-    #     # bar = IncrementalBar('Transmitting', max=(self.ota_data_len // self.payload_size) + 1)
-    #     # for i in range(0, (self.ota_data_len // self.payload_size) + 1):
-    #     #     self.send_payload_packet(i)
-    #     #     bar.next()
-    #     # bar.finish()
-    #     # global_vars.serial.timeout = 1
-    #
-    #     while True:
-    #         time.sleep(2)  # wait one esp timeout period to get packets to retransmitt to wait for esp
-    #         packets_to_send = []
-    #         spinner = Spinner('Getting Retransmissions')
-    #         while True:
-    #             try:
-    #                 packets_to_send.append(int.from_bytes(read_msg(self.qos_sendheader)[7:10], "little"))
-    #                 spinner.next()
-    #             except TimeoutError:
-    #                 # logging.info("Readtimeout --> no more retransmits sending received ones")
-    #                 break
-    #         spinner.finish()
-    #         if len(packets_to_send) == 0: break
-    #         bar = IncrementalBar('Retransmitting', max=len(packets_to_send))
-    #         for nums in packets_to_send:
-    #             self.send_payload_packet(nums)
-    #             bar.next()
-    #         bar.finish()
-    #
-    #     logging.info("Done!")
-
+        time.sleep(0.03)

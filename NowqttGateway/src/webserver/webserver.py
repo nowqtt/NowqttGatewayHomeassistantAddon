@@ -13,7 +13,8 @@ from .webserver_helper import (
     fetch_devices_names,
     patch_devices_names,
     delete_devices_names,
-    fetch_devices_activity
+    fetch_devices_activity,
+    trigger_ota_update
 )
 
 app = Flask(__name__)
