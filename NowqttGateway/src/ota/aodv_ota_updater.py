@@ -19,8 +19,6 @@ class OtaCommands(Enum):
 class OtaManager:
     def __init__(self, ota_data_file, mac_address):
         self.ota_data_file = ota_data_file
-        self.ota_data_len = len(self.ota_data_file)
-
         self.mac_address = mac_address
 
         self.payload_size = 232
@@ -41,7 +39,7 @@ class OtaManager:
                 self.last_retransmit_time = time.time()
 
     def init_ota(self):
-        packet_count = math.ceil(self.ota_data_len / self.payload_size)
+        packet_count = math.ceil(len(self.ota_data_file) / self.payload_size)
 
         logging.info("OTA update %s: Binary %i bytes --> %i Packets", self.mac_address, len(self.ota_data_file), packet_count)
 
@@ -59,7 +57,7 @@ class OtaManager:
     def send_init_ota_data(self):
         self.already_sending = True
         logging.info("Got Init -> sending data")
-        for i in range((self.ota_data_len // self.payload_size) + 1):
+        for i in range((len(self.ota_data_file) // self.payload_size) + 1):
             if i % 100 == 0:
                 logging.info('Sending package %d', i)
             self.send_payload_packet(i)
@@ -97,7 +95,7 @@ class OtaManager:
         t.start()
 
     def send_payload_packet(self, num):
-        if num == (self.ota_data_len // self.payload_size):
+        if num == (len(self.ota_data_file) // self.payload_size):
             payload = self.ota_data_file[num * self.payload_size:]
         else:
             payload = self.ota_data_file[num * self.payload_size:(num + 1) * self.payload_size]

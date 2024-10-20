@@ -23,6 +23,7 @@ app.config['SWAGGER'] = {
 }
 swagger = Swagger(app, template_file=os.path.abspath('/app/spec/swagger.yaml'))
 
+#TODO callback when ota is finished would be nice
 @app.route("/v1/ota/update/<device_mac_address>", methods=['POST'])
 def ota_update_device_mac_address(device_mac_address):
     return Response(response=trigger_ota_update(device_mac_address, request.files),
