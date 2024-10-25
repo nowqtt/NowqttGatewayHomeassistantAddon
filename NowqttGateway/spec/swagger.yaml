@@ -16,6 +16,7 @@ tags:
   - name: Traces
   - name: Devices
   - name: DevicesNames
+  - name: Activity
 
 paths:
   /traces:
@@ -191,6 +192,35 @@ paths:
                     items:
                       $ref: '#/components/schemas/Devices_Activity'
 
+  /ota/update/{device_mac_address}:
+    parameters:
+     - name: device_mac_address
+       in: path
+       schema:
+         type: string
+       required: true
+       description: Mac_address of the device that should be updated
+    post:
+     summary: OTA update a device
+     description: Start a OTA update for a device with a given MAC address and binary
+     requestBody:
+       content:
+         multipart/form-data:
+           schema:
+             type: object
+             properties:
+               file:
+                 type: string
+                 format: binary
+                 description: Binary file for OTA
+           encoding:
+             file:
+               contentType: application/octet-stream
+       required: true
+     responses:
+       '200':
+         description: File for OTA update received
+
 components:
   schemas:
 
@@ -248,4 +278,3 @@ components:
           type: string
         activity:
           type: integer
-

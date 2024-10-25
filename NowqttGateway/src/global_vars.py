@@ -4,6 +4,7 @@ global serial
 global mqtt_client_credentials
 global config
 global sql_lite_connection
+global ota_queue
 
 
 class SerialCommands(Enum):

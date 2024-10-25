@@ -27,6 +27,8 @@ if __name__ == '__main__':
         datefmt='%Y-%m-%d %H:%M:%S'
     )
 
+    global_vars.ota_queue = {}
+
     global_vars.sql_lite_connection = sqlite3.connect('/app/database/sql_lite_database.db', check_same_thread=False)
 
     create_tables()

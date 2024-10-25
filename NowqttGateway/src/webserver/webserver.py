@@ -5,16 +5,28 @@ import os
 from flask import Flask, request, Response
 from flasgger import Swagger
 
-import global_vars
-
-from .webserver_helper import fetch_traces, fetch_devices, fetch_devices_names, patch_devices_names, \
-    delete_devices_names, fetch_devices_activity
+from .webserver_helper import (
+    fetch_traces,
+    fetch_devices,
+    fetch_devices_names,
+    patch_devices_names,
+    delete_devices_names,
+    fetch_devices_activity,
+    trigger_ota_update
+)
 
 app = Flask(__name__)
 app.config['SWAGGER'] = {
     'openapi': '3.0.3'
 }
 swagger = Swagger(app, template_file=os.path.abspath('/app/spec/swagger.yaml'))
+
+#TODO callback when ota is finished would be nice
+@app.route("/v1/ota/update/<device_mac_address>", methods=['POST'])
+def ota_update_device_mac_address(device_mac_address):
+    return Response(response=trigger_ota_update(device_mac_address, request.files),
+                    status=200,
+                    mimetype="application/json")
 
 @app.route("/v1/devices", methods=['GET'], endpoint='devices')
 def devices():
