@@ -5,8 +5,6 @@ import os
 from flask import Flask, request, Response
 from flasgger import Swagger
 
-import global_vars
-
 from .webserver_helper import (
     fetch_traces,
     fetch_devices,
