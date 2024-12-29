@@ -129,7 +129,7 @@ def update_devices_names(mac_address, name, manual_input):
         cursor = global_vars.sql_lite_connection.cursor()
         cursor.execute(query)
     except Exception as e:
-        logging.info(f"An error occurred during DB insert: {e}")
+        logging.error(f"An error occurred during DB update: {e}")
 
 def insert_devices_names(mac_address, name, manual_input):
     try:
@@ -141,7 +141,7 @@ def insert_devices_names(mac_address, name, manual_input):
         cursor = global_vars.sql_lite_connection.cursor()
         cursor.execute(query)
     except Exception as e:
-        logging.info(f"An error occurred during DB insert: {e}")
+        logging.error(f"An error occurred during DB insert: {e}")
 
 def remove_devices_names(mac_address):
     try:
@@ -153,7 +153,7 @@ def remove_devices_names(mac_address):
         cursor = global_vars.sql_lite_connection.cursor()
         cursor.execute(query)
     except Exception as e:
-        logging.info(f"An error occurred during DB insert: {e}")
+        logging.error(f"An error occurred during DB delete: {e}")
 
 def insert_trace_table(dest_mac_address, trace_uuid):
     try:
@@ -163,7 +163,7 @@ def insert_trace_table(dest_mac_address, trace_uuid):
                 (trace_uuid, dest_mac_address)
             )
     except Exception as e:
-        logging.info(f"An error occurred during DB insert: {e}")
+        logging.error(f"An error occurred during DB insert: {e}")
 
 def insert_hop_table(trace_uuid, hop_counter, hop_mac_address, hop_rssi, hop_dest_seq, route_age, hop_count):
     try:
@@ -177,7 +177,7 @@ def insert_hop_table(trace_uuid, hop_counter, hop_mac_address, hop_rssi, hop_des
                 (trace_uuid, hop_counter, hop_mac_address, hop_rssi, hop_dest_seq, route_age, hop_count)
             )
     except Exception as e:
-        logging.info(f"An error occurred during DB insert: {e}")
+        logging.error(f"An error occurred during DB insert: {e}")
 
 def insert_device_activity_table(mac_address, activity):
     try:
@@ -187,7 +187,7 @@ def insert_device_activity_table(mac_address, activity):
                 (mac_address, activity)
             )
     except Exception as e:
-        logging.info(f"An error occurred during DB insert: {e}")
+        logging.error(f"An error occurred during DB insert: {e}")
 
 def find_current_activity_data():
     query = f"""

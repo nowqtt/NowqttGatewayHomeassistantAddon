@@ -90,8 +90,8 @@ class MQTTTask:
         try:
             self.mqtt_client.connect(global_vars.mqtt_client_credentials["address"],
                                      global_vars.mqtt_client_credentials["port"], 60)
-        except ConnectionRefusedError:
-            logging.info("Connection refused. Retrying in 10 seconds...")
+        except ConnectionRefusedError as e:
+            logging.info("Connection refused. Retrying in 10 seconds... %s", e)
             time.sleep(10)
             self.connect_to_mqtt()
 
