@@ -10,10 +10,9 @@ import logging
 import atexit
 from datetime import datetime
 
-
 from threading import Thread
 
-from database import (
+from nowqtt_database import (
     insert_hop_table,
     insert_trace_table,
     find_device_names,

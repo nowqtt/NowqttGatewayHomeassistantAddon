@@ -6,7 +6,7 @@ import time
 import paho.mqtt.client as mqtt
 from threading import Thread
 
-from database import insert_device_activity_table
+from nowqtt_database import insert_device_activity_table
 from . import mqtt_task
 
 

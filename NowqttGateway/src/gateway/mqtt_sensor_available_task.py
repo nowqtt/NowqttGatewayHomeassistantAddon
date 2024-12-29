@@ -2,7 +2,7 @@ import logging
 import threading
 import time
 
-from database import insert_device_activity_table
+from nowqtt_database import insert_device_activity_table
 from .nowqtt_device_tree import NowqttDevices
 
 
