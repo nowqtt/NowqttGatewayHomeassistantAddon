@@ -152,8 +152,10 @@ class Entity:
         self.mqtt_client.publish(self.mqtt_config_topic, json.dumps(mqtt_config_message))
 
     def mqtt_publish_availability(self, state):
-        self.mqtt_client.publish(self.mqtt_availability_topic, state, 0, True)
+        self.mqtt_client.publish(self.mqtt_availability_topic, state, qos=1, retain=True)
 
     def mqtt_disconnect(self):
         logging.debug("Disconnecting %s", self.mqtt_client._client_id.decode("utf-8"))
+
+        self.mqtt_publish_availability("offline")
         self.mqtt_client.disconnect()

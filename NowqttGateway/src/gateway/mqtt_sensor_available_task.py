@@ -14,8 +14,6 @@ def mqtt_sensor_available_task(nowqtt_devices: NowqttDevices, lock):
                 if device.last_seen_timestamp + device.seconds_until_timeout < int(time.time()):
                     devices_to_disconnect_mqtt.append(device_mac_address)
 
-                    device.hop_count_entity.mqtt_publish_availability("offline")
-
             # Disconnect selected clients
             for device in devices_to_disconnect_mqtt:
                 nowqtt_devices.del_element(device)
