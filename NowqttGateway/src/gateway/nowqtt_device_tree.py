@@ -7,13 +7,13 @@ import paho.mqtt.client as mqtt
 from threading import Thread
 
 from nowqtt_database import insert_device_activity_table
-from . import mqtt_task
+from .mqtt_task import MQTTTask
 
 
 def create_mqtt_client(header, mqtt_config, client_id, mqtt_config_topic, mqtt_subscriptions):
     new_client = mqtt.Client(client_id=client_id)
 
-    t = Thread(target=mqtt_task.MQTTTask(
+    t = Thread(target=MQTTTask(
         new_client,
         mqtt_subscriptions,
         header["device_mac_address"],
@@ -97,6 +97,13 @@ class NowqttDevices:
 
         self.devices[header["device_mac_address"]] = device
 
+    def del_element(self, device_mac_address):
+        if self.has_device(device_mac_address):
+            insert_device_activity_table(device_mac_address, 0)
+            self.devices[device_mac_address].mqtt_disconnect_all()
+
+            del self.devices[device_mac_address]
+
     def set_last_seen_timestamp_to_now(self, device_mac_address):
         if self.has_device(device_mac_address):
             self.devices[device_mac_address].set_last_seen_timestamp_to_now()
@@ -127,8 +134,6 @@ class Device:
         self.last_seen_timestamp = int(time.time())
 
     def mqtt_disconnect_all(self):
-        self.hop_count_entity.mqtt_publish_availability("offline")
-
         for device in self.entities.values():
             device.mqtt_disconnect()
 
