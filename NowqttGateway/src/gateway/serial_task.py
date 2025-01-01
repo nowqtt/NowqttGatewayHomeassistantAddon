@@ -1,36 +1,30 @@
+import threading
 import time
-from json import JSONDecodeError
-
 import uuid
-
-import global_vars
-
 import json
 import logging
 import atexit
 from datetime import datetime
 
+import global_vars
 
-from threading import Thread
-
-from database import (
+from nowqtt_database import (
     insert_hop_table,
     insert_trace_table,
     find_device_names,
     update_devices_names,
     insert_devices_names
 )
-from . import (mqtt_sensor_available_task,
-               mqtt_metadata_device_task,
-               trace_route_task)
 
+from .mqtt_metadata_device_task import MqttMetadataDevice
+from .mqtt_sensor_available_task import mqtt_sensor_available_task
+from .trace_route_task import trace_route_task
 from .formatter import (
     expand_sensor_config,
     format_mqtt_hop_count_config_topic,
     expand_header_message)
-from .nowqtt_device_tree import NowqttDevices
 from .serial_send_helper import send_serial_message
-
+from .nowqtt_device_tree import NowqttDevices
 
 def process_serial_log_message(message):
     logging.info(message)
@@ -89,6 +83,8 @@ class SerialTask:
 
         self.config_message_request_cooldown = {}
 
+        self.lock = threading.Lock()
+
     def handle_trace_route_message(self):
         message_length = int.from_bytes(global_vars.serial.read(1), "little")
         if message_length == 0:
@@ -142,12 +138,13 @@ class SerialTask:
             insert_hop_table(trace_uuid, x, hop_mac_address, hop_rssi, hop_dest_seq, route_age, hop_count_message)
 
         # Publish hop count
-        if self.nowqtt_devices.has_device(serial_header.hex()):
-            self.nowqtt_devices.devices[serial_header.hex()].hop_count_entity.mqtt_publish(calculate_hop_count_to_and_from(
-                serial_header.hex(),
-                trace_message_string,
-                byte_chars_per_hop
-            ))
+        with self.lock:
+            if self.nowqtt_devices.has_device(serial_header.hex()):
+                self.nowqtt_devices.devices[serial_header.hex()].hop_count_entity.mqtt_publish(calculate_hop_count_to_and_from(
+                    serial_header.hex(),
+                    trace_message_string,
+                    byte_chars_per_hop
+                ))
 
     def request_config_message(self, header):
         self.config_message_request_cooldown[header["device_mac_address"]] = time.time()
@@ -163,17 +160,17 @@ class SerialTask:
         logging.debug("request config on unknown state message. Header: %s\n", header["device_mac_address"])
 
     def process_mqtt_state_message(self, message, header):
-        if self.nowqtt_devices.has_device_and_entity(header["device_mac_address"], header["entity_id"]):
-            entity = self.nowqtt_devices.get_entity(header["device_mac_address"], header["entity_id"])
-            entity.mqtt_publish(message)
-        else:
-            # Test if cooldown exists
-            if header["device_mac_address"] in self.config_message_request_cooldown:
-                # Test if cooldown is longer then five seconds ago
-                if time.time() - self.config_message_request_cooldown[header["device_mac_address"]] >= global_vars.config["cooldown_between_config_request_on_unknown_sensor"]:
-                    self.request_config_message(header)
+        with self.lock:
+            if self.nowqtt_devices.has_device_and_entity(header["device_mac_address"], header["entity_id"]):
+                self.nowqtt_devices.get_entity(header["device_mac_address"], header["entity_id"]).mqtt_publish(message)
             else:
-                self.request_config_message(header)
+                # Test if cooldown exists
+                if header["device_mac_address"] in self.config_message_request_cooldown:
+                    # Test if cooldown is longer then five seconds ago
+                    if time.time() - self.config_message_request_cooldown[header["device_mac_address"]] >= global_vars.config["cooldown_between_config_request_on_unknown_sensor"]:
+                        self.request_config_message(header)
+                else:
+                    self.request_config_message(header)
 
     def process_mqtt_config_message(self, message, header):
         mqtt_topic = "homeassistant" + message.split("|")[0][1:]
@@ -196,51 +193,51 @@ class SerialTask:
 
             write_device_name_to_db(header['device_mac_address'], mqtt_config['dev']['name'])
 
-            if not self.nowqtt_devices.has_device_and_entity(header["device_mac_address"], header["entity_id"]):
-                mqtt_subscriptions = ["homeassistant/status"]
+            with self.lock:
+                if not self.nowqtt_devices.has_device_and_entity(header["device_mac_address"], header["entity_id"]):
+                    mqtt_subscriptions = ["homeassistant/status"]
 
-                # If there is a command topic append it to the subscriptions
-                if global_vars.platforms[mqtt_topic.split("/")[1]]['command']:
-                    mqtt_subscriptions.append(mqtt_config["command_topic"])
+                    # If there is a command topic append it to the subscriptions
+                    if global_vars.platforms[mqtt_topic.split("/")[1]]['command']:
+                        mqtt_subscriptions.append(mqtt_config["command_topic"])
 
-                # Prepare hop count MQTT
-                mqtt_config_topic_hop_count, mqtt_config_message_hop_count = format_mqtt_hop_count_config_topic(
-                    message,
-                    mqtt_config['availability_topic'],
-                    header
-                )
+                    # Prepare hop count MQTT
+                    mqtt_config_topic_hop_count, mqtt_config_message_hop_count = format_mqtt_hop_count_config_topic(
+                        message,
+                        mqtt_config['availability_topic'],
+                        header
+                    )
 
-                self.nowqtt_devices.add_element(header,
-                                                mqtt_config,
-                                                mqtt_subscriptions,
-                                                mqtt_topic + "onfig",
-                                                mqtt_config_message_hop_count,
-                                                mqtt_config_topic_hop_count,
-                                                seconds_until_timeout)
+                    self.nowqtt_devices.add_element(header,
+                                                    mqtt_config,
+                                                    mqtt_subscriptions,
+                                                    mqtt_topic + "onfig",
+                                                    mqtt_config_message_hop_count,
+                                                    mqtt_config_topic_hop_count,
+                                                    seconds_until_timeout)
 
-            # Publish potential new config topic
+                # Publish potential new config topic
+                else:
+                    self.nowqtt_devices.devices[header["device_mac_address"]].entities[header["entity_id"]].mqtt_publish_config_message(mqtt_config)
+        except json.JSONDecodeError as e:
+            logging.error('JSON decoder Error. Config Message %s. Error %s', message, e)
+        except Exception as e:
+            logging.error('Error in config message decode: %s', e)
+
+    def process_heartbeat(self, header):
+        with self.lock:
+            if self.nowqtt_devices.has_device(header["device_mac_address"]):
+                return
             else:
-                self.nowqtt_devices.devices[header["device_mac_address"]].entities[header["entity_id"]].mqtt_publish_config_message(mqtt_config)
-        except JSONDecodeError:
-            logging.error('JSON decoder Error. Config Message %s', message)
-
-    def process_heartbeat(self, header, message):
-        if self.nowqtt_devices.has_device(header["device_mac_address"]):
-            return
-            # self.nowqtt_devices.devices[header["device_mac_address"]].hop_count_entity.mqtt_publish(message)
-        else:
-            self.request_config_message(header)
+                self.request_config_message(header)
 
     def process_serial_message(self, message, header):
         # Set last seen message
-        self.nowqtt_devices.set_last_seen_timestamp_to_now(header["device_mac_address"])
+        with self.lock:
+            self.nowqtt_devices.set_last_seen_timestamp_to_now(header["device_mac_address"])
 
-        # ESP has started. Disconnect and clear MQTT connections
-        if header["command_type"] == global_vars.SerialCommands.RESET.value:
-            self.nowqtt_devices.mqtt_disconnect_all()
-            self.nowqtt_devices = NowqttDevices()
         # MQTT state message
-        elif header["command_type"] == global_vars.SerialCommands.STATE.value:
+        if header["command_type"] == global_vars.SerialCommands.STATE.value:
             self.process_mqtt_state_message(message, header)
         # MQTT config message
         elif header["command_type"] == global_vars.SerialCommands.CONFIG.value:
@@ -250,10 +247,11 @@ class SerialTask:
             process_serial_log_message(message)
         # heartbeat
         elif header["command_type"] == global_vars.SerialCommands.HEARTBEAT.value:
-            self.process_heartbeat(header, 10)
+            self.process_heartbeat(header)
 
     def disconnect_all_mqtt_clients(self):
-        self.nowqtt_devices.set_activity_to_offline()
+        with self.lock:
+            self.nowqtt_devices.mqtt_disconnect_all()
 
     # Receive serial messages
     def start_serial_task(self):
@@ -261,28 +259,29 @@ class SerialTask:
         atexit.register(self.disconnect_all_mqtt_clients)
 
         # Test if sensor is available
-        t = Thread(target=mqtt_sensor_available_task.MQTTSensorAvailableTask(
-            self.nowqtt_devices
-        ).run())
-        t.daemon = True
-        t.start()
+        available_thread = threading.Thread(
+            target=mqtt_sensor_available_task,
+            args=(self.nowqtt_devices, self.lock),
+            daemon=True)
+        available_thread.start()
 
         # Trace route
-        t = Thread(target=trace_route_task.TraceRouteTask(
-            self.nowqtt_devices
-        ).run())
-        t.daemon = True
-        t.start()
+        trace_route_thread = threading.Thread(
+            target=trace_route_task,
+            args=(self.nowqtt_devices, self.lock),
+            daemon=True)
+        trace_route_thread.start()
 
         # Mqtt metadata and control task
-        t = Thread(target=mqtt_metadata_device_task.MqttMetadataDevice().start_mqtt_task)
-        t.daemon = True
-        t.start()
+        metadata_thread = threading.Thread(
+            target=MqttMetadataDevice().start_mqtt_task,
+            daemon = True)
+        metadata_thread.start()
 
         # clear the serial input buffer
         global_vars.serial.reset_input_buffer()
 
-        logging.info("RUNNING")
+        logging.info("SERIAL TASK RUNNING")
 
         send_header = bytearray.fromhex("FF13AB")
         while True:

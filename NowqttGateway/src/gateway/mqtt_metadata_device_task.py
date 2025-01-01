@@ -73,8 +73,8 @@ class MqttMetadataDevice:
         try:
             self.mqtt_client.connect(global_vars.mqtt_client_credentials["address"],
                                      global_vars.mqtt_client_credentials["port"], 60)
-        except ConnectionRefusedError:
-            logging.info("Connection refused. Retrying in 10 seconds...")
+        except ConnectionRefusedError as e:
+            logging.info("Connection refused. Retrying in 10 seconds.... %s", e)
             time.sleep(10)
             self.connect_to_mqtt()
 
@@ -82,7 +82,7 @@ class MqttMetadataDevice:
         self.mqtt_client.on_connect = self.on_connect
         self.mqtt_client.on_message = self.on_message
         self.mqtt_client.on_disconnect = self.on_disconnect
-        self.mqtt_client.will_set(get_availability_topic(), payload="offline", retain=True)
+        self.mqtt_client.will_set(get_availability_topic(), payload="offline", qos=1, retain=True)
 
         self.mqtt_client.username_pw_set(global_vars.mqtt_client_credentials["username"],
                                          global_vars.mqtt_client_credentials["password"])

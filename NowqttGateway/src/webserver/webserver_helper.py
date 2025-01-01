@@ -2,7 +2,7 @@ import json
 import logging
 
 import global_vars
-from database import (
+from nowqtt_database import (
     find_with_filters,
     find_devices,
     find_device_names,

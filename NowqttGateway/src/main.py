@@ -9,7 +9,7 @@ import json
 
 from gateway import SerialTask
 from webserver import webserver
-from database import create_tables
+from nowqtt_database import create_tables
 
 if __name__ == '__main__':
     global_vars.config = {}

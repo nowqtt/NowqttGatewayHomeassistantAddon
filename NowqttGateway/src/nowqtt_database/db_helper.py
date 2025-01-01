@@ -119,57 +119,75 @@ def find_device_names(mac_address):
     return cursor.fetchall()
 
 def update_devices_names(mac_address, name, manual_input):
-    query = f"""
-        UPDATE device_names
-        SET name = '{name}', manual_input = {manual_input}
-        WHERE device_names.mac_address like '{mac_address}'
-    """
+    try:
+        query = f"""
+            UPDATE device_names
+            SET name = '{name}', manual_input = {manual_input}
+            WHERE device_names.mac_address like '{mac_address}'
+        """
 
-    cursor = global_vars.sql_lite_connection.cursor()
-    cursor.execute(query)
+        cursor = global_vars.sql_lite_connection.cursor()
+        cursor.execute(query)
+    except Exception as e:
+        logging.error(f"An error occurred during DB update: {e}")
 
 def insert_devices_names(mac_address, name, manual_input):
-    query = f"""
-        INSERT INTO device_names (name, mac_address, manual_input)
-        VALUES ('{name}', '{mac_address}', {manual_input})
-    """
+    try:
+        query = f"""
+            INSERT INTO device_names (name, mac_address, manual_input)
+            VALUES ('{name}', '{mac_address}', {manual_input})
+        """
 
-    cursor = global_vars.sql_lite_connection.cursor()
-    cursor.execute(query)
+        cursor = global_vars.sql_lite_connection.cursor()
+        cursor.execute(query)
+    except Exception as e:
+        logging.error(f"An error occurred during DB insert: {e}")
 
 def remove_devices_names(mac_address):
-    query = f"""
-        DELETE FROM  device_names
-        WHERE mac_address like '{mac_address}'
-    """
+    try:
+        query = f"""
+            DELETE FROM  device_names
+            WHERE mac_address like '{mac_address}'
+        """
 
-    cursor = global_vars.sql_lite_connection.cursor()
-    cursor.execute(query)
+        cursor = global_vars.sql_lite_connection.cursor()
+        cursor.execute(query)
+    except Exception as e:
+        logging.error(f"An error occurred during DB delete: {e}")
 
 def insert_trace_table(dest_mac_address, trace_uuid):
-    with global_vars.sql_lite_connection:
-        global_vars.sql_lite_connection.execute(
-            "INSERT INTO trace (uuid, dest_mac_address) VALUES (?, ?)",
-            (trace_uuid, dest_mac_address)
-        )
+    try:
+        with global_vars.sql_lite_connection:
+            global_vars.sql_lite_connection.execute(
+                "INSERT INTO trace (uuid, dest_mac_address) VALUES (?, ?)",
+                (trace_uuid, dest_mac_address)
+            )
+    except Exception as e:
+        logging.error(f"An error occurred during DB insert: {e}")
 
 def insert_hop_table(trace_uuid, hop_counter, hop_mac_address, hop_rssi, hop_dest_seq, route_age, hop_count):
-    with global_vars.sql_lite_connection:
-        query = f"""
-            INSERT INTO hop
-            (trace_uuid, hop_counter, hop_mac_address, hop_rssi, hop_dest_seq, route_age, hop_count)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """
-        global_vars.sql_lite_connection.execute(query,
-            (trace_uuid, hop_counter, hop_mac_address, hop_rssi, hop_dest_seq, route_age, hop_count)
-        )
+    try:
+        with global_vars.sql_lite_connection:
+            query = f"""
+                INSERT INTO hop
+                (trace_uuid, hop_counter, hop_mac_address, hop_rssi, hop_dest_seq, route_age, hop_count)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """
+            global_vars.sql_lite_connection.execute(query,
+                (trace_uuid, hop_counter, hop_mac_address, hop_rssi, hop_dest_seq, route_age, hop_count)
+            )
+    except Exception as e:
+        logging.error(f"An error occurred during DB insert: {e}")
 
 def insert_device_activity_table(mac_address, activity):
-    with global_vars.sql_lite_connection:
-        global_vars.sql_lite_connection.execute(
-            "INSERT INTO device_activity (mac_address, activity) VALUES (?, ?)",
-            (mac_address, activity)
-        )
+    try:
+        with global_vars.sql_lite_connection:
+            global_vars.sql_lite_connection.execute(
+                "INSERT INTO device_activity (mac_address, activity) VALUES (?, ?)",
+                (mac_address, activity)
+            )
+    except Exception as e:
+        logging.error(f"An error occurred during DB insert: {e}")
 
 def find_current_activity_data():
     query = f"""
