@@ -109,6 +109,8 @@ class NowqttDevices:
             self.devices[device_mac_address].set_last_seen_timestamp_to_now()
 
     def mqtt_disconnect_all(self):
+        logging.info("Disconnecting all devices")
+
         for device in self.devices.values():
             device.mqtt_disconnect_all()
 
