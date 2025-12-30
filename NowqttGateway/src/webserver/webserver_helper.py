@@ -11,9 +11,11 @@ from nowqtt_database import (
     remove_devices_names,
     find_current_activity_data,
     find_activity_by_mac_address,
-    find_active_or_inactive_devices
+    find_active_or_inactive_devices,
+    find_last_trace_of_each_device
 )
 from ota import OtaManager
+from collections import defaultdict
 
 
 def fetch_devices():
@@ -143,3 +145,70 @@ def trigger_ota_update(mac_address, files):
     if binary_file_bytes is not None:
         global_vars.ota_queue[mac_address] = OtaManager(binary_file_bytes, mac_address)
         global_vars.ota_queue[mac_address].init_ota()
+
+
+def update_rssi(data, source, target, new_rssi, timestamp):
+    for item in data:
+        if item['source'] == source and item['target'] == target:
+            if timestamp > item['timestamp']:
+                item['rssi'] = new_rssi
+                item['timestamp'] = timestamp
+
+            return True
+
+    return False
+
+def traces_to_edges(rows):
+    traces = defaultdict(list)
+    # group by uuid
+    for uuid, ts, mac, rssi, hop in rows:
+        traces[uuid].append({
+            "mac": mac,
+            "rssi": rssi,
+            "hop": hop,
+            "timestamp": ts
+        })
+
+    edges = []
+    for uuid, hops in traces.items():
+        for i in range(len(hops) - 1):
+            source = hops[i]["mac"]
+            target = hops[i + 1]["mac"]
+            rssi = hops[i + 1]["rssi"]
+            timestamp = hops[i + 1]["timestamp"]
+
+            if not update_rssi(edges, source, target, rssi, timestamp):
+                edges.append({
+                    "uuid": uuid,
+                    "source": source,
+                    "target": target,
+                    "rssi": rssi,
+                    "timestamp": timestamp
+                })
+
+    return edges
+
+def fetch_graph_data():
+    devices = find_device_names(None)
+
+    nodes = []
+    for device in devices:
+        nodes.append({
+            "label": device[0],
+            "id": device[1],
+            "type": "device"
+        })
+    nodes.append({
+        "label": "Gateway",
+        "id": "c04e304b157e",
+        "type": "gateway"
+    })
+
+    traces = find_last_trace_of_each_device()
+
+    result = {
+        "nodes": nodes,
+        "edges": traces_to_edges(traces)
+    }
+
+    return json.dumps(result, indent=4)

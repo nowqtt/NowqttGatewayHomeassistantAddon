@@ -2,7 +2,7 @@ import json
 import logging
 import os
 
-from flask import Flask, request, Response
+from flask import Flask, request, Response, render_template
 from flasgger import Swagger
 
 from .webserver_helper import (
@@ -12,7 +12,8 @@ from .webserver_helper import (
     patch_devices_names,
     delete_devices_names,
     fetch_devices_activity,
-    trigger_ota_update
+    trigger_ota_update,
+    fetch_graph_data
 )
 
 app = Flask(__name__)
@@ -81,24 +82,17 @@ def devices_activity():
 
 @app.route("/", methods=['GET'])
 def home():
-    response_body = """
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Welcome to the API</title>
-        </head>
-        <body>
-            <h1>Welcome to the Nowqtt Gateway</h1>
-            <p>You can find the API documentation <a href="/apidocs">here</a>.</p>
-        </body>
-        </html>
-    """
+    return render_template("index.html")
 
-    return Response(response=response_body,
-                        status=200,
-                        mimetype="text/html")
+@app.route("/v1/graph/data", methods=['GET'])
+def graph_data():
+    return Response(response=fetch_graph_data(),
+                    status=200,
+                    mimetype="application/json")
+
+@app.route("/graph", methods=['GET'])
+def graph_page():
+    return render_template("graph.html")
 
 def run():
     logging.info("Web server running on port 54321")

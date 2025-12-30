@@ -233,3 +233,32 @@ def find_active_or_inactive_devices(activity):
             result.append(a)
 
     return result
+
+def find_last_trace_of_each_device():
+    query = f"""
+        SELECT
+            t.uuid,
+            t.timestamp,
+            hop.hop_mac_address,
+            hop.hop_rssi,
+            hop.hop_counter
+        FROM (
+            SELECT
+                trace.uuid,
+                trace.dest_mac_address,
+                trace.timestamp,
+                ROW_NUMBER() OVER (
+                    PARTITION BY trace.dest_mac_address
+                    ORDER BY trace.timestamp DESC
+                ) AS rn
+            FROM trace
+            WHERE datetime(trace.timestamp) > datetime('now', '-3 days')
+        ) t
+        LEFT JOIN hop ON t.uuid = hop.trace_uuid
+        WHERE rn = 1
+        ORDER BY t.uuid asc, hop.hop_counter asc
+    """
+
+    cursor = global_vars.sql_lite_connection.cursor()
+    cursor.execute(query)
+    return cursor.fetchall()
