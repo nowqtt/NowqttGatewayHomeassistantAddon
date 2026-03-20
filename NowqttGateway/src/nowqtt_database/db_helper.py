@@ -252,7 +252,7 @@ def find_last_trace_of_each_device():
                     ORDER BY trace.timestamp DESC
                 ) AS rn
             FROM trace
-            WHERE datetime(trace.timestamp) > datetime('now', '-3 days')
+            WHERE datetime(trace.timestamp) > datetime('now', '-3 minutes')
         ) t
         LEFT JOIN hop ON t.uuid = hop.trace_uuid
         WHERE rn = 1
