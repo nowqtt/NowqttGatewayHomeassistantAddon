@@ -64,9 +64,9 @@ function runLayout() {
     cy.layout({
         name: 'cola',
 
-        nodeSpacing: 200,
-        edgeLengthVal: 400,
-        edgeLength: 400,
+        nodeSpacing: 180,
+        edgeLengthVal: 350,
+        edgeLength: 350,
 
         animate: true,
         randomize: false,
