@@ -1,7 +1,7 @@
 ---
 name: "Nowqtt Mash Gateway"
 description: "Nowqtt Mash Gateway Homeassistant Add-on"
-version: "2.1.1"
+version: "2.2.0"
 slug: "nowqtt_mash_gateway"
 url: "https://github.com/nowqtt/NowqttGatewayHomeassistantAddon"
 init: false
@@ -22,6 +22,13 @@ options:
   log_level: "INFO"
   default_seconds_until_timeout: 60
   cooldown_between_config_request_on_unknown_sensor: 5
+  trace_interval_seconds: 60
+  trace_retention_days: 30
+  serial_read_timeout_seconds: 1
+  serial_write_timeout_seconds: 2
+  serial_output_queue_size: 256
+  max_ota_firmware_size: 4194304
+  ota_session_timeout_seconds: 1200
   serial:
     com_port: "/dev/ttyACM0"
     baudrate: 115200
@@ -32,14 +39,21 @@ options:
     port: 1883
 
 schema:
-  log_level: list(DEBUG|INFO|WARNING|ERROR|CRITICAL|TEST)
-  default_seconds_until_timeout: int(0,)
-  cooldown_between_config_request_on_unknown_sensor: int(0,)
+  log_level: list(DEBUG|INFO|WARNING|ERROR|CRITICAL)
+  default_seconds_until_timeout: int(1,)
+  cooldown_between_config_request_on_unknown_sensor: int(1,)
+  trace_interval_seconds: int(10,)
+  trace_retention_days: int(1,)
+  serial_read_timeout_seconds: int(1,)
+  serial_write_timeout_seconds: int(1,)
+  serial_output_queue_size: int(32,4096)
+  max_ota_firmware_size: int(1,4194304)
+  ota_session_timeout_seconds: int(30,3600)
   serial:
     com_port: str
-    baudrate: int(0,)
+    baudrate: int(1,)
   mqtt_client:
     username: str
     password: str
     address: str
-    port: int
+    port: int(1,65535)

@@ -1,231 +1,366 @@
 openapi: 3.0.3
 
 info:
-  version: '1.0.0'
-  title: Nowqtt Bridge
-  description: Get Nowqtt log data
+  version: '2.2.0'
+  title: Nowqtt Gateway API
+  description: Inspect the Nowqtt mesh, manage device names, and control OTA updates.
 
 servers:
-  - url: '/{basePath}'
-    description: API server
-    variables:
-        basePath:
-          default: v1
+  - url: /v1
 
 tags:
+  - name: Runtime
   - name: Traces
   - name: Devices
-  - name: DevicesNames
-  - name: Activity
+  - name: OTA
 
 paths:
+  /health:
+    get:
+      summary: Get gateway health and runtime metrics
+      tags: [Runtime]
+      responses:
+        '200':
+          description: All required workers, MQTT, and serial I/O are healthy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '503':
+          description: At least one required runtime component is unhealthy or stopping.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+
   /traces:
     get:
-      summary: Get a list of traces
-      description: Returns a list of traces
-      tags:
-        - Traces
+      summary: Get recent route traces
+      tags: [Traces]
       parameters:
-        - name: device_mac_address
-          in: query
-          required: false
-          schema:
-            type: string
-            minLength: 12
-            maxLength: 12
-        - name: last
-          in: query
-          required: false
-          schema:
-            type: integer
-            minimum: 0
+        - $ref: '#/components/parameters/DeviceMacQuery'
+        - $ref: '#/components/parameters/Last'
+        - $ref: '#/components/parameters/Offset'
       responses:
-        200:
-          description: A list of traces
+        '200':
+          description: A bounded page of traces.
           content:
             application/json:
               schema:
                 type: object
+                required: [total, items]
                 properties:
                   total:
-                    type: number
+                    type: integer
                   items:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Traces'
-        500:
-          description: Internal server error
+                      $ref: '#/components/schemas/Trace'
+        '400':
+          $ref: '#/components/responses/BadRequest'
 
   /devices:
     get:
-      summary: Get a list of devices
-      description: Returns a list of devices
-      tags:
-        - Devices
+      summary: Get devices observed in route traces
+      tags: [Devices]
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
       responses:
-        200:
-          description: A list of devices
+        '200':
+          description: A bounded page of devices.
           content:
             application/json:
               schema:
                 type: object
+                required: [total, items]
                 properties:
                   total:
-                    type: number
+                    type: integer
                   items:
                     type: array
                     items:
-                      type: object
-                      properties:
-                        mac_address:
-                          type: string
-                        name:
-                          type: string
-        500:
-          description: Internal server error
+                      $ref: '#/components/schemas/Device'
+        '400':
+          $ref: '#/components/responses/BadRequest'
 
-  /devices/{device_mac_address}/names:
-    parameters:
-      - name: device_mac_address
-        in: path
-        schema:
-          type: string
-        required: true
-        description: Mac_address for the name
+  /devices/names:
     get:
-      summary: Get a list of devices names
-      description: Returns a list of devices names
-      tags:
-        - DevicesNames
+      summary: Get stored device names
+      tags: [Devices]
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
       responses:
-        200:
-          description: A list of devices names
+        '200':
+          description: A bounded page of device names.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Devices_Names'
+                type: object
+                required: [total, items]
+                properties:
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeviceName'
+        '400':
+          $ref: '#/components/responses/BadRequest'
 
+  /devices/{device_mac_address}/names:
+    parameters:
+      - $ref: '#/components/parameters/DeviceMacPath'
+    get:
+      summary: Get the stored name for one device
+      tags: [Devices]
+      responses:
+        '200':
+          description: The matching name collection, which may be empty.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [total, items]
+                properties:
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeviceName'
+        '400':
+          $ref: '#/components/responses/BadRequest'
     patch:
-      summary: Add a device name
-      description: Add a device name
-      tags:
-        - DevicesNames
+      summary: Set a manual device name
+      tags: [Devices]
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              additionalProperties: false
+              required: [name]
               properties:
                 name:
                   type: string
+                  minLength: 1
+                  maxLength: 128
       responses:
-        201:
-          description: Add a device name
+        '201':
+          description: The stored device name.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Devices_Names'
-
+                $ref: '#/components/schemas/DeviceName'
+        '400':
+          $ref: '#/components/responses/BadRequest'
     delete:
-      summary: Delete a device name
-      description: Delete a device name
-      tags:
-        - DevicesNames
+      summary: Remove a stored device name
+      tags: [Devices]
       responses:
-        204:
-          description: Add a device name
-
-  /devices/names:
-    get:
-      summary: Get a list of devices names
-      description: Returns a list of devices names
-      tags:
-        - DevicesNames
-      responses:
-        200:
-          description: A list of devices names
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  total:
-                    type: number
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Devices_Names'
+        '204':
+          description: The name was removed or did not exist.
+        '400':
+          $ref: '#/components/responses/BadRequest'
 
   /devices/activity:
     get:
-      summary: Get the activity log of devices
-      description: Returns the activity log of devices
-      tags:
-        - Activity
+      summary: Get device availability activity
+      tags: [Devices]
       parameters:
-        - name: device_mac_address
-          in: query
-          required: false
-          schema:
-            type: string
-            minLength: 12
-            maxLength: 12
-        - name: last
-          in: query
-          required: false
-          schema:
-            type: integer
-            minimum: 0
+        - $ref: '#/components/parameters/DeviceMacQuery'
+        - $ref: '#/components/parameters/Last'
+        - $ref: '#/components/parameters/Offset'
       responses:
-        200:
-          description: A list of activities
+        '200':
+          description: A bounded page of activity records and current totals.
           content:
             application/json:
               schema:
                 type: object
+                required: [total, online, offline, items]
                 properties:
                   total:
-                    type: number
+                    type: integer
+                  online:
+                    type: integer
+                  offline:
+                    type: integer
                   items:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Devices_Activity'
+                      $ref: '#/components/schemas/DeviceActivity'
+        '400':
+          $ref: '#/components/responses/BadRequest'
 
   /ota/update/{device_mac_address}:
     parameters:
-     - name: device_mac_address
-       in: path
-       schema:
-         type: string
-       required: true
-       description: Mac_address of the device that should be updated
+      - $ref: '#/components/parameters/DeviceMacPath'
     post:
-     summary: OTA update a device
-     description: Start a OTA update for a device with a given MAC address and binary
-     requestBody:
-       content:
-         multipart/form-data:
-           schema:
-             type: object
-             properties:
-               file:
-                 type: string
-                 format: binary
-                 description: Binary file for OTA
-           encoding:
-             file:
-               contentType: application/octet-stream
-       required: true
-     responses:
-       '200':
-         description: File for OTA update received
+      summary: Start an OTA update
+      tags: [OTA]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Non-empty ESP firmware with a .bin filename.
+      responses:
+        '202':
+          description: The OTA session was accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtaStatus'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Another OTA session is already active.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: The upload exceeds the configured firmware size.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ota/status:
+    get:
+      summary: Get active or most recent OTA status
+      tags: [OTA]
+      responses:
+        '200':
+          description: OTA coordinator status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtaStatus'
 
 components:
-  schemas:
+  parameters:
+    DeviceMacPath:
+      name: device_mac_address
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[0-9a-fA-F]{12}$'
+    DeviceMacQuery:
+      name: device_mac_address
+      in: query
+      required: false
+      schema:
+        type: string
+        pattern: '^[0-9a-fA-F]{12}$'
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 100
+    Last:
+      name: last
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 100
+    Offset:
+      name: offset
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 1000000
+        default: 0
 
-    Traces:
+  responses:
+    BadRequest:
+      description: Invalid path, query, JSON, or upload data.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
       type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+    Device:
+      type: object
+      required: [mac_address]
+      properties:
+        mac_address:
+          type: string
+          pattern: '^[0-9a-f]{12}$'
+        name:
+          type: string
+          nullable: true
+    DeviceName:
+      type: object
+      required: [name, mac_address]
+      properties:
+        name:
+          type: string
+        mac_address:
+          type: string
+          pattern: '^[0-9a-f]{12}$'
+    DeviceActivity:
+      type: object
+      required: [mac_address, timestamp, activity]
+      properties:
+        name:
+          type: string
+          nullable: true
+        mac_address:
+          type: string
+        timestamp:
+          type: string
+        activity:
+          type: integer
+          enum: [0, 1]
+    Hop:
+      type: object
+      properties:
+        hop_counter:
+          type: integer
+        hop_mac_address:
+          type: string
+        name:
+          type: string
+          nullable: true
+        hop_rssi:
+          type: integer
+        hop_dest_seq:
+          type: integer
+        route_age:
+          type: integer
+        hop_count:
+          type: integer
+    Trace:
+      type: object
+      required: [uuid, dest_mac_address, timestamp, hops]
       properties:
         uuid:
           type: string
@@ -234,47 +369,52 @@ components:
           type: string
         name:
           type: string
+          nullable: true
         timestamp:
           type: string
         hops:
-          $ref: '#/components/schemas/Hops'
-
-    Hops:
-      type: array
-      items:
-        type: object
-        properties:
-          hop_counter:
-            type: integer
-          hop_mac_address:
-            type: string
-          name:
-            type: string
-          hop_rssi:
-            type: integer
-          hop_dest_seq:
-            type: integer
-          route_age:
-            type: integer
-          hop_count:
-            type: integer
-
-    Devices_Names:
+          type: array
+          items:
+            $ref: '#/components/schemas/Hop'
+    OtaStatus:
       type: object
+      required: [active]
       properties:
-        name:
+        active:
+          type: boolean
+        device_mac_address:
           type: string
-        mac_address:
+        state:
           type: string
-
-    Devices_Activity:
-      type: object
-      properties:
-        name:
-          type: string
-        mac_address:
-          type: string
-        timestamp:
-          type: string
-        activity:
+        packet_count:
           type: integer
+        sent_packets:
+          type: integer
+    Health:
+      type: object
+      required:
+        - healthy
+        - stopping
+        - mqtt_connected
+        - serial_reader
+        - serial_writer
+        - runtime_workers
+        - ota
+      properties:
+        healthy:
+          type: boolean
+        stopping:
+          type: boolean
+        mqtt_connected:
+          type: boolean
+        serial_reader:
+          type: object
+          additionalProperties: true
+        serial_writer:
+          type: object
+          additionalProperties: true
+        runtime_workers:
+          type: object
+          additionalProperties: true
+        ota:
+          $ref: '#/components/schemas/OtaStatus'

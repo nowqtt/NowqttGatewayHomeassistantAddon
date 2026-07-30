@@ -1,10 +1,14 @@
 from enum import Enum
 
 global serial
+global serial_transport
 global mqtt_client_credentials
 global config
-global sql_lite_connection
-global ota_queue
+global ota_coordinator
+global mqtt_gateway
+global serial_task
+global background_workers
+global stop_event
 
 
 class SerialCommands(Enum):

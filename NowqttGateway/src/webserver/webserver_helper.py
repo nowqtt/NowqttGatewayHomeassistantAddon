@@ -1,25 +1,37 @@
 import json
 import logging
+import threading
+import time
 
 import global_vars
 from nowqtt_database import (
     find_with_filters,
+    count_traces,
     find_devices,
+    count_devices,
     find_device_names,
+    count_device_names,
     insert_devices_names,
     update_devices_names,
     remove_devices_names,
     find_current_activity_data,
     find_activity_by_mac_address,
-    find_active_or_inactive_devices,
-    find_last_trace_of_each_device
+    count_activity,
+    count_current_activity_states,
+    find_last_trace_of_each_device,
+    get_graph_revision,
 )
-from ota import OtaManager
 from collections import defaultdict
 
 
-def fetch_devices():
-    rows = find_devices()
+_graph_cache_lock = threading.Lock()
+_graph_cache_value = None
+_graph_cache_expires = 0
+_graph_cache_revision = None
+
+
+def fetch_devices(limit=100, offset=0):
+    rows = find_devices(limit, offset)
 
     devices = []
     for row in rows:
@@ -29,19 +41,14 @@ def fetch_devices():
         })
 
     result = {
-        "total": len(devices),
+        "total": count_devices(),
         "items": devices
     }
 
     return json.dumps(result, indent=4)
 
-def fetch_traces(device_mac_address, last):
-    filters = []
-
-    if device_mac_address is not None:
-        filters.append("trace.dest_mac_address like '" + device_mac_address + "'")
-
-    rows = find_with_filters(filters, last)
+def fetch_traces(device_mac_address, last, offset=0):
+    rows = find_with_filters(device_mac_address, last, offset)
 
     # Convert data to a list of dictionaries
     traces = {}
@@ -74,14 +81,14 @@ def fetch_traces(device_mac_address, last):
             traces[trace_uuid]["hops"].append(hop_data)
 
     result = {
-        "total": len(traces),
+        "total": count_traces(device_mac_address),
         "items": list(traces.values())
     }
 
     return json.dumps(result, indent=4)
 
-def fetch_devices_names(mac_address = None):
-    rows = find_device_names(mac_address)
+def fetch_devices_names(mac_address=None, limit=100, offset=0):
+    rows = find_device_names(mac_address, limit, offset)
 
     names = []
     for row in rows:
@@ -91,7 +98,7 @@ def fetch_devices_names(mac_address = None):
         })
 
     result = {
-        "total": len(names),
+        "total": count_device_names(mac_address),
         "items": names
     }
 
@@ -108,11 +115,11 @@ def patch_devices_names(mac_address, name):
 def delete_devices_names(mac_address):
     remove_devices_names(mac_address)
 
-def fetch_devices_activity(mac_address, last):
+def fetch_devices_activity(mac_address, last, offset=0):
     if mac_address is None:
-        activity_data = find_current_activity_data()
+        activity_data = find_current_activity_data(last, offset)
     else:
-        activity_data = find_activity_by_mac_address(mac_address, last)
+        activity_data = find_activity_by_mac_address(mac_address, last, offset)
 
     activity = []
     for row in activity_data:
@@ -123,40 +130,28 @@ def fetch_devices_activity(mac_address, last):
             "name": row[3]
         })
 
+    current_total, online_total, offline_total = count_current_activity_states()
     result = {
-        "total": len(activity),
-        "online": len(find_active_or_inactive_devices(1)),
-        "offline": len(find_active_or_inactive_devices(0)),
+        "total": current_total if mac_address is None else count_activity(mac_address),
+        "online": online_total,
+        "offline": offline_total,
         "items": activity
     }
 
     return json.dumps(result, indent=4)
 
 def trigger_ota_update(mac_address, files):
-    #TODO test if mac address is valid
-    logging.info(mac_address)
-
     binary_file_bytes = None
-    for filename, file in files.items():
-        if file.filename.endswith('.bin'):
+    for _, file in files.items():
+        if file.filename.lower().endswith('.bin'):
             binary_file_bytes = bytearray(file.read())
             break
 
-    if binary_file_bytes is not None:
-        global_vars.ota_queue[mac_address] = OtaManager(binary_file_bytes, mac_address)
-        global_vars.ota_queue[mac_address].init_ota()
+    if not binary_file_bytes:
+        raise ValueError("A non-empty .bin firmware file is required")
+    logging.info("Starting OTA update for %s", mac_address)
+    return global_vars.ota_coordinator.start_update(binary_file_bytes, mac_address)
 
-
-def update_rssi(data, source, target, new_rssi, timestamp):
-    for item in data:
-        if item['source'] == source and item['target'] == target:
-            if timestamp > item['timestamp']:
-                item['rssi'] = new_rssi
-                item['timestamp'] = timestamp
-
-            return True
-
-    return False
 
 def traces_to_edges(rows):
     traces = defaultdict(list)
@@ -169,7 +164,7 @@ def traces_to_edges(rows):
             "timestamp": ts
         })
 
-    edges = []
+    edges = {}
     for uuid, hops in traces.items():
         for i in range(len(hops) - 1):
             source = hops[i]["mac"]
@@ -177,38 +172,50 @@ def traces_to_edges(rows):
             rssi = hops[i + 1]["rssi"]
             timestamp = hops[i + 1]["timestamp"]
 
-            if not update_rssi(edges, source, target, rssi, timestamp):
-                edges.append({
+            edge_key = (source, target)
+            current = edges.get(edge_key)
+            if current is None or timestamp > current['timestamp']:
+                edges[edge_key] = {
                     "uuid": uuid,
                     "source": source,
                     "target": target,
                     "rssi": rssi,
                     "timestamp": timestamp
-                })
+                }
 
-    return edges
+    return list(edges.values())
 
 def fetch_graph_data():
-    devices = find_device_names(None)
+    global _graph_cache_value, _graph_cache_expires, _graph_cache_revision
+    now = time.monotonic()
+    revision = get_graph_revision()
+    with _graph_cache_lock:
+        if (
+            _graph_cache_value is not None
+            and revision == _graph_cache_revision
+            and now < _graph_cache_expires
+        ):
+            return _graph_cache_value
 
-    nodes = []
-    for device in devices:
+        devices = find_device_names(None, limit=1000)
+        nodes = [
+            {"label": device[0], "id": device[1], "type": "device"}
+            for device in devices
+        ]
         nodes.append({
-            "label": device[0],
-            "id": device[1],
-            "type": "device"
+            "label": "Gateway",
+            "id": "c04e304b157e",
+            "type": "gateway"
         })
-    nodes.append({
-        "label": "Gateway",
-        "id": "c04e304b157e",
-        "type": "gateway"
-    })
 
-    traces = find_last_trace_of_each_device()
-
-    result = {
-        "nodes": nodes,
-        "edges": traces_to_edges(traces)
-    }
-
-    return json.dumps(result, indent=4)
+        trace_interval = global_vars.config.get("trace_interval_seconds", 60)
+        trace_freshness = max(180, int(trace_interval) * 3)
+        traces = find_last_trace_of_each_device(trace_freshness, limit=1000)
+        result_json = json.dumps({
+            "nodes": nodes,
+            "edges": traces_to_edges(traces)
+        }, indent=4)
+        _graph_cache_value = result_json
+        _graph_cache_expires = now + 10
+        _graph_cache_revision = revision
+        return result_json

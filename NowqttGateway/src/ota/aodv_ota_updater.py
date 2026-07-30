@@ -1,14 +1,17 @@
 import logging
 import math
+import re
+import threading
 import time
-from enum import Enum
-from threading import Thread
+from enum import IntEnum
 
-import global_vars
-from gateway import send_ota_init_serial_message, send_ota_data_serial_message
+from gateway.serial_send_helper import (
+    send_ota_data_serial_message,
+    send_ota_init_serial_message,
+)
 
 
-class OtaCommands(Enum):
+class OtaCommands(IntEnum):
     OTA_INIT = 101
     OTA_READY = 102
     OTA_DATA = 103
@@ -16,96 +19,230 @@ class OtaCommands(Enum):
     OTA_DISCOVER = 105
     OTA_DISCOVER_RESPONSE = 106
 
-class OtaManager:
-    def __init__(self, ota_data_file, mac_address):
-        self.ota_data_file = ota_data_file
+
+class OtaCoordinator:
+    def __init__(self, max_firmware_size=4 * 1024 * 1024, session_timeout=1200):
+        self._lock = threading.RLock()
+        self._active = None
+        self._max_firmware_size = max_firmware_size
+        self._session_timeout = session_timeout
+        self._last_status = None
+
+    def start_update(self, firmware, mac_address):
+        if not re.fullmatch(r"[0-9a-fA-F]{12}", mac_address or ""):
+            raise ValueError("Device MAC address must contain exactly 12 hexadecimal digits")
+        if not firmware:
+            raise ValueError("Firmware image is empty")
+        if len(firmware) > self._max_firmware_size:
+            raise ValueError("Firmware image exceeds the configured OTA size limit")
+
+        with self._lock:
+            if self._active is not None:
+                raise RuntimeError("Another OTA update is already active")
+            session = OtaSession(
+                bytes(firmware),
+                mac_address.lower(),
+                self._session_finished,
+                self._session_timeout,
+            )
+            self._active = session
+        session.start()
+        return session.status()
+
+    def handle_serial_message(self, mac_address, payload):
+        with self._lock:
+            session = self._active
+        if session is None or session.mac_address != mac_address:
+            logging.warning("Ignoring OTA message for inactive device %s", mac_address)
+            return False
+        return session.handle_serial_message(payload)
+
+    def cancel(self):
+        with self._lock:
+            session = self._active
+        if session is not None:
+            session.cancel()
+
+    def cancel_and_wait(self, timeout=5):
+        with self._lock:
+            session = self._active
+        if session is not None:
+            session.cancel()
+            session.join(timeout)
+
+    def is_active(self):
+        with self._lock:
+            return self._active is not None
+
+    def status(self):
+        with self._lock:
+            session = self._active
+        if session is None:
+            if self._last_status is None:
+                return {"active": False}
+            return dict(self._last_status, active=False)
+        return session.status()
+
+    def _session_finished(self, session):
+        with self._lock:
+            self._last_status = session.status()
+            if self._active is session:
+                self._active = None
+
+
+class OtaSession:
+    payload_size = 232
+    packet_delay_seconds = 0.05
+
+    def __init__(self, firmware, mac_address, on_finished, session_timeout):
+        self.firmware = firmware
         self.mac_address = mac_address
-
-        self.payload_size = 232
-
-        self.packets_to_retransmit = []
-        self.already_sending = False
-        self.last_retransmit_time = None
-
-    def handle_serial_message(self, serial_message):
-        if not self.already_sending:
-            if serial_message[0] == OtaCommands.OTA_READY.value:
-                t = Thread(target=self.send_init_ota_data)
-                t.daemon = True
-                t.start()
-
-            elif serial_message[0] == OtaCommands.OTA_RETRANSMIT.value:
-                self.packets_to_retransmit.append(int.from_bytes(serial_message[1:4], "little"))
-                self.last_retransmit_time = time.time()
-
-    def init_ota(self):
-        packet_count = math.ceil(len(self.ota_data_file) / self.payload_size)
-
-        logging.info("OTA update %s: Binary %i bytes --> %i Packets", self.mac_address, len(self.ota_data_file), packet_count)
-
-        send_ota_init_serial_message(
-            "00",
-            self.mac_address,
-            OtaCommands.OTA_INIT.value,
-            len(self.ota_data_file),
+        self.packet_count = math.ceil(len(firmware) / self.payload_size)
+        self._on_finished = on_finished
+        self._session_timeout = session_timeout
+        self._condition = threading.Condition()
+        self._retransmit_packets = set()
+        self._ready = False
+        self._cancelled = False
+        self._state = "initializing"
+        self._sent_packets = 0
+        self._deadline = None
+        self._thread = threading.Thread(
+            target=self._run,
+            name="ota-%s" % mac_address,
+            daemon=True,
         )
 
-        t = Thread(target=self.retransmit_listener)
-        t.daemon = True
-        t.start()
+    def start(self):
+        self._deadline = time.monotonic() + self._session_timeout
+        self._thread.start()
 
-    def send_init_ota_data(self):
-        self.already_sending = True
-        logging.info("Got Init -> sending data")
-        for i in range((len(self.ota_data_file) // self.payload_size) + 1):
-            if i % 100 == 0:
-                logging.info('Sending package %d', i)
-            self.send_payload_packet(i)
+    def join(self, timeout=None):
+        self._thread.join(timeout)
 
-        self.already_sending = False
+    def cancel(self):
+        with self._condition:
+            self._cancelled = True
+            self._condition.notify_all()
 
-    def retransmit_listener(self):
-        while True:
-            if self.last_retransmit_time is not None:
-                if time.time() - self.last_retransmit_time > 1.5:
-                    self.retransmit_ota_data()
-                    break
-            time.sleep(0.1)  # Check every 100ms for efficiency
+    def handle_serial_message(self, payload):
+        if not payload:
+            return False
+        command = payload[0]
+        with self._condition:
+            if command == OtaCommands.OTA_READY:
+                self._ready = True
+                self._condition.notify_all()
+                return True
+            if command == OtaCommands.OTA_RETRANSMIT:
+                if len(payload) != 5:
+                    logging.warning("Ignoring malformed OTA retransmit message")
+                    return False
+                packet_number = int.from_bytes(payload[1:5], "little")
+                if packet_number >= self.packet_count:
+                    logging.warning("Ignoring out-of-range OTA packet %d", packet_number)
+                    return False
+                self._retransmit_packets.add(packet_number)
+                self._condition.notify_all()
+                return True
+        return False
 
-    def retransmit_ota_data(self):
-        self.already_sending = True
+    def status(self):
+        with self._condition:
+            return {
+                "active": self._state not in ("complete", "cancelled", "failed"),
+                "device_mac_address": self.mac_address,
+                "state": self._state,
+                "packet_count": self.packet_count,
+                "sent_packets": self._sent_packets,
+            }
 
-        if not self.packets_to_retransmit:
-            logging.info("OTA %s: No more packages to retransmit", self.mac_address)
+    def _run(self):
+        try:
+            if not send_ota_init_serial_message(
+                "00", self.mac_address, OtaCommands.OTA_INIT, len(self.firmware)
+            ):
+                raise RuntimeError("Serial OTA initialization queue is full")
 
-            global_vars.ota_queue.pop(self.mac_address)
-            return
+            with self._condition:
+                ready = self._condition.wait_for(
+                    lambda: self._ready or self._cancelled,
+                    timeout=min(30, self._session_timeout),
+                )
+                if self._cancelled:
+                    self._state = "cancelled"
+                    return
+                if not ready:
+                    raise TimeoutError("Timed out waiting for OTA_READY")
+                self._state = "sending"
 
-        logging.info("Retransmitting %d packages", len(self.packets_to_retransmit))
+            for packet_number in range(self.packet_count):
+                self._check_active()
+                self._send_packet(packet_number)
 
-        for retransmit in self.packets_to_retransmit:
-            self.send_payload_packet(retransmit)
+            quiet_deadline = time.monotonic() + 3
+            with self._condition:
+                self._state = "waiting_for_retransmits"
 
-        self.packets_to_retransmit = []
-        self.already_sending = False
-        self.last_retransmit_time = None
+            while time.monotonic() < self._deadline:
+                with self._condition:
+                    if self._cancelled:
+                        self._state = "cancelled"
+                        return
+                    timeout = max(0, min(quiet_deadline, self._deadline) - time.monotonic())
+                    self._condition.wait(timeout=timeout)
+                    packets = sorted(self._retransmit_packets)
+                    self._retransmit_packets.clear()
 
-        t = Thread(target=self.retransmit_listener)
-        t.daemon = True
-        t.start()
+                if packets:
+                    quiet_deadline = time.monotonic() + 3
+                    for packet_number in packets:
+                        self._check_active()
+                        self._send_packet(packet_number)
+                    continue
+                if time.monotonic() >= quiet_deadline:
+                    with self._condition:
+                        self._state = "complete"
+                    logging.info("OTA transfer to %s completed", self.mac_address)
+                    return
 
-    def send_payload_packet(self, num):
-        if num == (len(self.ota_data_file) // self.payload_size):
-            payload = self.ota_data_file[num * self.payload_size:]
-        else:
-            payload = self.ota_data_file[num * self.payload_size:(num + 1) * self.payload_size]
+            raise TimeoutError("OTA retransmission window exceeded its deadline")
+        except OtaCancelled:
+            with self._condition:
+                self._state = "cancelled"
+            logging.info("OTA transfer to %s cancelled", self.mac_address)
+        except Exception:
+            with self._condition:
+                self._state = "failed"
+            logging.exception("OTA transfer to %s failed", self.mac_address)
+        finally:
+            self._on_finished(self)
 
-        send_ota_data_serial_message(
-            "00",
-            self.mac_address,
-            OtaCommands.OTA_DATA.value,
-            num,
-            payload
-        )
+    def _send_packet(self, packet_number):
+        self._check_active()
+        start = packet_number * self.payload_size
+        payload = self.firmware[start:start + self.payload_size]
+        if not payload:
+            raise ValueError("Refusing to send an empty OTA packet")
+        if not send_ota_data_serial_message(
+            "00", self.mac_address, OtaCommands.OTA_DATA, packet_number, payload
+        ):
+            raise RuntimeError("Serial OTA queue is full")
+        with self._condition:
+            self._sent_packets += 1
+            self._condition.wait_for(
+                lambda: self._cancelled, timeout=self.packet_delay_seconds
+            )
+        self._check_active()
 
-        time.sleep(0.05)
+    def _check_active(self):
+        with self._condition:
+            if self._cancelled:
+                self._state = "cancelled"
+                raise OtaCancelled()
+        if self._deadline is not None and time.monotonic() >= self._deadline:
+            raise TimeoutError("OTA session deadline exceeded")
+
+
+class OtaCancelled(Exception):
+    pass

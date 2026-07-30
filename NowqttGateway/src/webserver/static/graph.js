@@ -61,7 +61,7 @@ let initialized = false;
 
 // Shared layout config (⬅️ improved spacing)
 function runLayout() {
-    cy.layout({
+    const layout = cy.layout({
         name: 'cola',
 
         nodeSpacing: 180,
@@ -78,11 +78,14 @@ function runLayout() {
 
         centerGraph: true,
         fit: true
-    }).run();
-
-    layout.on('layoutstop', () => {
-        cy.fit(cy.nodes(), 200); // padding
     });
+
+    layout.one('layoutstop', () => {
+        if (cy.nodes().length > 0) {
+            cy.fit(cy.nodes(), 200);
+        }
+    });
+    layout.run();
 }
 
 // Main update function
@@ -119,6 +122,11 @@ async function updateGraph() {
                     }
                 });
                 newNodeAdded = true;
+            } else {
+                cy.getElementById(n.id).data({
+                    label: n.label,
+                    type: n.type
+                });
             }
         });
 

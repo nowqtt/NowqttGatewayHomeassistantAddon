@@ -1,47 +1,42 @@
 import logging
 
-import global_vars
-from .db_migration import db_migration_0, db_migration_1, db_migration_2, db_migration_3
+from .database import configure_database, connection
+from .db_migration import (
+    db_migration_0,
+    db_migration_1,
+    db_migration_2,
+    db_migration_3,
+    db_migration_4,
+    db_migration_5,
+)
 
 
-def insert_migration(migrations_id):
-    with global_vars.sql_lite_connection:
-        query = f"""
-            INSERT INTO migration (id)
-            VALUES (?)
-        """
+def create_tables(database_path=None):
+    if database_path is not None:
+        configure_database(database_path)
 
-        global_vars.sql_lite_connection.execute(query, (migrations_id, ))
+    with connection() as database:
+        database.execute('''
+            CREATE TABLE IF NOT EXISTS migration (
+                id INTEGER PRIMARY KEY,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        row = database.execute("SELECT MAX(id) FROM migration").fetchone()
+        last_migration = row[0] if row and row[0] is not None else -1
 
-
-def create_tables():
-    global_vars.sql_lite_connection.execute('''
-        CREATE TABLE IF NOT EXISTS migration (
-            id INTEGER PRIMARY KEY,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-
-    cursor = global_vars.sql_lite_connection.cursor()
-    cursor.execute("SELECT id, timestamp FROM migration ORDER BY id DESC LIMIT 1;")
-    migration_rows = cursor.fetchall()
-
-    skip_migrations = -1
-    if len(migration_rows) > 0:
-        skip_migrations = migration_rows[0][0]
-
-    migrations = [
-        db_migration_0,
-        db_migration_1,
-        db_migration_2,
-        db_migration_3
-    ]
-
-    for i in range(len(migrations)):
-        if i <= skip_migrations:
-            continue
-        else:
-            migrations[i]()
-            insert_migration(i)
+        migrations = [
+            db_migration_0,
+            db_migration_1,
+            db_migration_2,
+            db_migration_3,
+            db_migration_4,
+            db_migration_5,
+        ]
+        for migration_id, migration in enumerate(migrations):
+            if migration_id <= last_migration:
+                continue
+            migration(database)
+            database.execute("INSERT INTO migration (id) VALUES (?)", (migration_id,))
 
     logging.info("DB configured")

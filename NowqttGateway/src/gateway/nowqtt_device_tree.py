@@ -1,133 +1,126 @@
-import json
 import logging
-from typing import Dict
+import threading
 import time
-
-import paho.mqtt.client as mqtt
-from threading import Thread
+from typing import Dict
 
 from nowqtt_database import insert_device_activity_table
-from .mqtt_task import MQTTTask
 
-
-def create_mqtt_client(header, mqtt_config, client_id, mqtt_config_topic, mqtt_subscriptions):
-    new_client = mqtt.Client(client_id=client_id)
-
-    t = Thread(target=MQTTTask(
-        new_client,
-        mqtt_subscriptions,
-        header["device_mac_address"],
-        header["entity_id"],
-        mqtt_config,
-        mqtt_config_topic
-    ).start_mqtt_task)
-    t.daemon = True
-    t.start()
-
-    while not new_client.is_connected():
-        time.sleep(0.1)
-
-    return Entity(
-        mqtt_config["state_topic"],
-        new_client,
-        mqtt_config['availability_topic'],
-        mqtt_config_topic
-    )
+from .serial_send_helper import command_to_serial
 
 
 class NowqttDevices:
-    def __init__(self):
-        self.devices: Dict[bytearray, Device] = {}
+    def __init__(self, mqtt_gateway):
+        self.devices: Dict[str, Device] = {}
+        self._mqtt_gateway = mqtt_gateway
+        self._lifecycle_locks = [threading.RLock() for _ in range(64)]
+
+    def lifecycle_lock(self, device_mac_address):
+        lock_index = int(device_mac_address[-2:], 16) % len(self._lifecycle_locks)
+        return self._lifecycle_locks[lock_index]
 
     def has_device(self, device_mac_address):
-        for device in self.devices.keys():
-            if device == device_mac_address:
-                return True
-        return False
+        return device_mac_address in self.devices
 
     def has_device_and_entity(self, device_mac_address, entity_id):
-        if self.has_device(device_mac_address):
-            return self.devices[device_mac_address].has_entity(entity_id)
-        else:
-            return False
+        device = self.devices.get(device_mac_address)
+        return device is not None and device.has_entity(entity_id)
 
     def get_entity(self, device_mac_address, entity_id):
         return self.devices[device_mac_address].entities[entity_id]
 
-    def add_element(self,
-                    header,
-                    mqtt_config,
-                    mqtt_subscriptions,
-                    mqtt_config_topic,
-                    mqtt_config_message_hop_count,
-                    mqtt_config_topic_hop_count,
-                    seconds_until_timeout):
-        # Test if device exists
-        if self.has_device(header["device_mac_address"]):
-            device = self.devices[header["device_mac_address"]]
+    def registration_needs(self, device_mac_address, entity_id):
+        device = self.devices.get(device_mac_address)
+        return device is None, device is None or not device.has_entity(entity_id)
+
+    def attach_element(self, header, seconds_until_timeout, hop_entity=None, entity=None):
+        device_mac = header["device_mac_address"]
+        entity_id = header["entity_id"]
+        device = self.devices.get(device_mac)
+        is_new_device = device is None
+
+        if is_new_device:
+            if hop_entity is None:
+                raise ValueError("A new device requires a hop-count entity")
+            hop_key = "%s:hop" % device_mac
+            device = Device(seconds_until_timeout, hop_entity, hop_key)
+            self.devices[device_mac] = device
+
+        entity_key = "%s:%d" % (device_mac, entity_id)
+        if not device.has_entity(entity_id):
+            if entity is None:
+                raise ValueError("A new entity requires a prepared MQTT entity")
+            device.entities[entity_id] = entity
+            device.entity_keys[entity_id] = entity_key
         else:
-            new_hop_count_entity = create_mqtt_client(
-                header,
-                mqtt_config_message_hop_count,
-                header["device_mac_address"] + "00",
-                mqtt_config_topic_hop_count,
-                ["homeassistant/status"]
-            )
+            entity = device.entities[entity_id]
 
-            device = Device(seconds_until_timeout, new_hop_count_entity)
-            device.entities[0] = new_hop_count_entity
-
-            device.hop_count_entity.mqtt_publish_availability("online")
-
-            insert_device_activity_table(header["device_mac_address"], 1)
-
-        # Test if entity exists
-        if not device.has_entity(header["entity_id"]):
-            entity = create_mqtt_client(
-                header,
-                mqtt_config,
-                header["device_mac_address_and_entity_id"],
-                mqtt_config_topic,
-                mqtt_subscriptions
-            )
-
-            device.entities[header["entity_id"]] = entity
-
+        device.seconds_until_timeout = seconds_until_timeout
         device.set_last_seen_timestamp_to_now()
+        return device, entity, is_new_device
 
-        self.devices[header["device_mac_address"]] = device
+    def prepare_hop_entity(self, device_mac, config_topic, mqtt_config):
+        return self._mqtt_gateway.register_entity(
+            "%s:hop" % device_mac, config_topic, mqtt_config
+        )
 
-    def del_element(self, device_mac_address):
-        if self.has_device(device_mac_address):
+    def prepare_entity(self, header, config_topic, mqtt_config):
+        device_mac = header["device_mac_address"]
+        entity_id = header["entity_id"]
+        return self._mqtt_gateway.register_entity(
+            "%s:%d" % (device_mac, entity_id),
+            config_topic,
+            mqtt_config,
+            command_to_serial(device_mac, entity_id)
+            if mqtt_config.get("command_topic") else None,
+        )
+
+    def update_hop_entity(self, device, config_topic, mqtt_config):
+        self._mqtt_gateway.update_entity(
+            device.hop_count_entity, config_topic, mqtt_config
+        )
+
+    def update_entity(self, header, entity, config_topic, mqtt_config):
+        handler = (
+            command_to_serial(header["device_mac_address"], header["entity_id"])
+            if mqtt_config.get("command_topic") else None
+        )
+        self._mqtt_gateway.update_entity(entity, config_topic, mqtt_config, handler)
+
+    def disconnect_device(self, device_mac_address, device, publish_availability=True):
+        removed_any = False
+        for entity_key, entity in device.all_entities():
+            removed_any = self._mqtt_gateway.unregister_entity(
+                entity_key,
+                entity,
+                publish_availability=publish_availability,
+            ) or removed_any
+        if removed_any and publish_availability:
             insert_device_activity_table(device_mac_address, 0)
-            self.devices[device_mac_address].mqtt_disconnect_all()
-
-            del self.devices[device_mac_address]
+        return removed_any
 
     def set_last_seen_timestamp_to_now(self, device_mac_address):
-        if self.has_device(device_mac_address):
-            self.devices[device_mac_address].set_last_seen_timestamp_to_now()
+        device = self.devices.get(device_mac_address)
+        if device is not None:
+            device.set_last_seen_timestamp_to_now()
 
-    def mqtt_disconnect_all(self):
-        logging.info("Disconnecting all devices")
+    def snapshot_addresses(self):
+        return list(self.devices)
 
-        for device in self.devices.values():
-            device.mqtt_disconnect_all()
-
-        for mac_address in self.devices.keys():
-            insert_device_activity_table(mac_address, 0)
-
-    def set_activity_to_offline(self):
-        for mac_address in self.devices.keys():
-            insert_device_activity_table(mac_address, 0)
+    def pop_timed_out(self, now):
+        timed_out = []
+        for device_mac_address, device in list(self.devices.items()):
+            if device.last_seen_timestamp + device.seconds_until_timeout < now:
+                timed_out.append((device_mac_address, self.devices.pop(device_mac_address)))
+        return timed_out
 
 class Device:
-    def __init__(self, seconds_until_timeout, hop_count_entity):
-        self.last_seen_timestamp = 0
+    def __init__(self, seconds_until_timeout, hop_count_entity, hop_key):
+        self.last_seen_timestamp = int(time.time())
         self.seconds_until_timeout = seconds_until_timeout
-
-        self.entities: Dict[int, Entity] = {}
-        self.hop_count_entity: Entity = hop_count_entity
+        self.entities = {}
+        self.entity_keys = {}
+        self.hop_count_entity = hop_count_entity
+        self.hop_key = hop_key
 
     def has_entity(self, entity_id):
         return entity_id in self.entities
@@ -135,29 +128,13 @@ class Device:
     def set_last_seen_timestamp_to_now(self):
         self.last_seen_timestamp = int(time.time())
 
-    def mqtt_disconnect_all(self):
-        for device in self.entities.values():
-            device.mqtt_disconnect()
+    def all_entities(self):
+        entities = [(self.hop_key, self.hop_count_entity)]
+        entities.extend(
+            (self.entity_keys[entity_id], entity)
+            for entity_id, entity in self.entities.items()
+        )
+        return entities
 
-class Entity:
-    def __init__(self, mqtt_state_topic, mqtt_client, mqtt_availability_topic, mqtt_config_topic):
-        self.mqtt_state_topic = mqtt_state_topic
-        self.mqtt_client = mqtt_client
-        self.mqtt_availability_topic = mqtt_availability_topic
-        self.mqtt_config_topic = mqtt_config_topic
 
-    def mqtt_publish(self, message):
-        self.mqtt_client.publish(self.mqtt_state_topic, message)
-        self.mqtt_client.set_last_known_state(message)
-
-    def mqtt_publish_config_message(self, mqtt_config_message):
-        self.mqtt_client.publish(self.mqtt_config_topic, json.dumps(mqtt_config_message))
-
-    def mqtt_publish_availability(self, state):
-        self.mqtt_client.publish(self.mqtt_availability_topic, state, qos=1, retain=True)
-
-    def mqtt_disconnect(self):
-        logging.debug("Disconnecting %s", self.mqtt_client._client_id.decode("utf-8"))
-
-        self.mqtt_publish_availability("offline")
-        self.mqtt_client.disconnect()
+__all__ = ["Device", "NowqttDevices"]

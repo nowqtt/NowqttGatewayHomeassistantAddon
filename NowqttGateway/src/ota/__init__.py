@@ -1,1 +1,1 @@
-from .aodv_ota_updater import OtaManager
+from .aodv_ota_updater import OtaCoordinator
