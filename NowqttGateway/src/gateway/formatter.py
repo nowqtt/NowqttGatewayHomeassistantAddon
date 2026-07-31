@@ -44,6 +44,9 @@ def _safe_device_id(value):
 
 def get_device_availability_topic(mqtt_config):
     logging.info("MQTT Config: %s", mqtt_config)
+    availability_topic = mqtt_config.get('availability_topic')
+    if availability_topic is not None:
+        return availability_topic
     state_topic = mqtt_config.get('state_topic', [])
     if state_topic is None:
         raise ValueError("MQTT config is missing state_topic to determine device availability")
@@ -90,14 +93,9 @@ def expand_sensor_config(mqtt_config, mqtt_client_name, mqtt_topic, header):
     mqtt_config['dev']['manufacturer'] = "nowqtt"
     mqtt_config['dev']['model'] = header["device_mac_address"]
 
-    device_availability_topic = (
-        "homeassistant/available/" + device_topic_id
-    )
-    mqtt_config['availability'] = [
-        {'topic': GATEWAY_AVAILABILITY_TOPIC},
-        {'topic': device_availability_topic},
-    ]
-    mqtt_config['availability_mode'] = 'all'
+    mqtt_config.pop('availability', None)
+    mqtt_config.pop('availability_mode', None)
+    mqtt_config['availability_topic'] = "homeassistant/available/" + device_topic_id
 
     logging.debug("MQTT Config: %s", mqtt_config)
     return mqtt_config, seconds_until_timeout

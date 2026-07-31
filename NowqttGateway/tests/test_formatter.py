@@ -11,6 +11,7 @@ import global_vars
 from gateway.formatter import (
     expand_sensor_config,
     format_mqtt_hop_count_config_topic,
+    get_device_availability_topic,
     parse_discovery_topic,
 )
 
@@ -38,8 +39,16 @@ class FormatterTests(unittest.TestCase):
         self.assertEqual(timeout, 60)
         self.assertEqual(expanded["state_topic"], mqtt_topic[:-1] + "state")
         self.assertEqual(expanded["command_topic"], mqtt_topic + "om")
-        self.assertEqual(expanded["availability_mode"], "all")
-        self.assertEqual(len(expanded["availability"]), 2)
+        self.assertEqual(
+            expanded["availability_topic"],
+            "homeassistant/available/ESP_TV_My_Room",
+        )
+        self.assertNotIn("availability", expanded)
+        self.assertNotIn("availability_mode", expanded)
+        self.assertEqual(
+            get_device_availability_topic(expanded),
+            expanded["availability_topic"],
+        )
         self.assertTrue(hop_topic.endswith("/config"))
         self.assertIn("state_topic", hop_config)
 
