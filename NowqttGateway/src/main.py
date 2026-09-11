@@ -6,6 +6,7 @@ import global_vars
 import serial
 
 import json
+import yaml
 
 from gateway import SerialTask
 from webserver import webserver
@@ -13,6 +14,8 @@ from nowqtt_database import create_tables
 
 if __name__ == '__main__':
     global_vars.config = {}
+    
+    # Used for Home Assistant Add-on
     with open("/data/options.json", "r") as user_file:
         try:
             file_contents = user_file.read()
@@ -20,6 +23,11 @@ if __name__ == '__main__':
             logging.error(e)
 
     global_vars.config = json.loads(file_contents)
+
+    # Used for Docker container
+    # with open("/app/src/config.yaml", "r") as user_file:
+    #     temp = yaml.safe_load(user_file)
+    #     global_vars.config = temp['config']
 
     logging.basicConfig(
         format='%(asctime)s %(levelname)-8s %(message)s',
